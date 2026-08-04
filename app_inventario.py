@@ -5,6 +5,7 @@ import calendar
 from datetime import datetime, date, timedelta
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+from PIL import Image, ImageTk
 
 # Intentar importar ReportLab para generación nativa de PDF
 try:
@@ -17,12 +18,13 @@ except ImportError:
 # Archivos de persistencia
 DB_FILE = "bienes.json"
 DB_BAJAS_FILE = "bienes_bajas.json"
+BANNER_IMG = "fondo.png"
 
 class InventarioBienesApp:
     def __init__(self, root):
         self.root = root
         self.root.title("SIGAR - Sistema de Inventario y Gestión de Activos y Recursos")
-        self.root.geometry("1060x680")
+        self.root.geometry("1060x760")
         self.root.configure(bg="#f4f6f9")
         
         # Cargar datos iniciales
@@ -33,10 +35,22 @@ class InventarioBienesApp:
         self.style.theme_use("clam")
         self.style.configure("Treeview.Heading", font=("Segoe UI", 10, "bold"), background="#0b3c5d", foreground="white")
         self.style.configure("TButton", font=("Segoe UI", 9, "bold"), padding=6)
+
+        # --- BANNER INSTITUCIONAL SUPERIOR ---
+        if os.path.exists(BANNER_IMG):
+            try:
+                img_orig = Image.open(BANNER_IMG)
+                # Escalar la imagen a 1060x130px manteniendo nitidez
+                img_banner = img_orig.resize((1060, 130), Image.Resampling.LANCZOS)
+                self.banner_photo = ImageTk.PhotoImage(img_banner)
+                lbl_banner = tk.Label(root, image=self.banner_photo, bg="#f4f6f9")
+                lbl_banner.pack(fill="x", padx=0, pady=(0, 5))
+            except Exception as e:
+                print(f"No se pudo cargar la imagen del banner: {e}")
         
         # --- PANEL SUPERIOR: Formulario de Registro e Historial ---
         frame_form = tk.LabelFrame(root, text=" Registrar Activo y Gestión de Mantenimiento ", font=("Segoe UI", 10, "bold"), bg="#ffffff", fg="#0b3c5d", bd=2, relief="groove")
-        frame_form.pack(fill="x", padx=15, pady=8)
+        frame_form.pack(fill="x", padx=15, pady=5)
         
         frame_form.columnconfigure(1, weight=1)
         frame_form.columnconfigure(3, weight=2)
@@ -158,7 +172,6 @@ class InventarioBienesApp:
         self.root.focus_force()
         self.entry_id.focus_force()
 
-    # --- PROCESO DE BAJA CON JUSTIFICACIÓN Y GENERACIÓN DE PDF ---
     def dar_de_baja_bien(self):
         seleccion = self.tabla.selection()
         if not seleccion:
@@ -169,7 +182,6 @@ class InventarioBienesApp:
         id_bien = int(item["values"][0])
         nombre_bien = item["values"][1]
         
-        # Solicitar motivo de la baja
         motivo = simpledialog.askstring(
             "Justificación de Baja", 
             f"Indique la causa / motivo por el cual se da de baja el activo ID {id_bien}:\n({nombre_bien})",
@@ -177,7 +189,6 @@ class InventarioBienesApp:
         )
         
         if motivo is None:
-            # Usuario canceló
             return
             
         motivo = motivo.strip()
@@ -205,14 +216,9 @@ class InventarioBienesApp:
                 "fecha_baja": fecha_hora_baja
             }
             
-            # 1. Guardar en histórico de bajas
             self.guardar_registro_baja(registro_baja)
-            
-            # 2. Retirar de activos vigentes
             self.bienes = [b for b in self.bienes if b["id"] != id_bien]
             self.guardar_datos(self.bienes)
-            
-            # 3. Generar comprobante/Acta (PDF o TXT)
             archivo_generado = self.generar_acta_baja(registro_baja)
             
             self.actualizar_tabla()
@@ -248,7 +254,6 @@ class InventarioBienesApp:
             c = canvas.Canvas(archivo_pdf, pagesize=letter)
             width, height = letter
             
-            # Encabezado
             c.setFont("Helvetica-Bold", 14)
             c.drawString(50, height - 50, "SIGAR - SISTEMA DE GESTIÓN DE ACTIVOS Y RECURSOS")
             c.setFont("Helvetica-Bold", 12)
@@ -256,12 +261,10 @@ class InventarioBienesApp:
             c.setLineWidth(1)
             c.line(50, height - 78, width - 50, height - 78)
             
-            # Datos del Documento
             c.setFont("Helvetica-Bold", 10)
             c.drawString(50, height - 110, f"Fecha de Procesamiento: {registro['fecha_baja']}")
             c.drawString(50, height - 125, f"Código de Activo (ID): {registro['id']}")
             
-            # Detalle del Activo
             y = height - 160
             c.drawString(50, y, "DETALLES DEL EQUIPO:")
             c.setFont("Helvetica", 10)
@@ -272,13 +275,10 @@ class InventarioBienesApp:
             if registro['desc_mant']:
                 c.drawString(70, y - 82, f"• Detalle Mantenimiento: {registro['desc_mant']}")
                 
-            # Motivo de Baja
             y_motivo = y - 120
             c.setFont("Helvetica-Bold", 10)
             c.drawString(50, y_motivo, "JUSTIFICACIÓN / MOTIVO DE LA BAJA:")
-            c.setFont("Helvetica", 10)
             
-            # Ajuste multilínea para el motivo
             text_object = c.beginText(70, y_motivo - 18)
             text_object.setFont("Helvetica", 10)
             palabras = registro['motivo_baja'].split()
@@ -293,7 +293,6 @@ class InventarioBienesApp:
                 text_object.textLine(linea)
             c.drawText(text_object)
             
-            # Área de Firmas
             y_firma = 140
             c.setLineWidth(0.8)
             c.line(70, y_firma, 240, y_firma)
@@ -307,7 +306,6 @@ class InventarioBienesApp:
             c.save()
             return archivo_pdf
         else:
-            # Fallback a formato de texto si ReportLab no está instalado
             archivo_txt = f"{nombre_base}.txt"
             contenido = f"""======================================================================
 SIGAR - SISTEMA DE GESTIÓN DE ACTIVOS Y RECURSOS
@@ -340,7 +338,6 @@ Responsable del Equipo                  Bienes y Suministros
                 f.write(contenido)
             return archivo_txt
 
-    # --- LÓGICA DE BÚSQUEDA Y FILTRADO ---
     def filtrar_tabla(self, event=None):
         criterio = self.entry_buscar.get().strip().lower()
         for item in self.tabla.get_children():
@@ -366,7 +363,6 @@ Responsable del Equipo                  Bienes y Suministros
         self.entry_buscar.delete(0, tk.END)
         self.actualizar_tabla()
 
-    # --- LÓGICA DE CARGA Y EDICIÓN ---
     def cargar_seleccion_para_editar(self, event=None):
         seleccion = self.tabla.selection()
         if not seleccion:
@@ -452,7 +448,6 @@ Responsable del Equipo                  Bienes y Suministros
         self.calcular_proxima_fecha_mantenimiento()
         self.entry_id.focus_force()
 
-    # --- FECHAS Y PERSISTENCIA ---
     def calcular_fecha_habil_3_meses(self, fecha_base):
         m = fecha_base.month - 1 + 3
         y = fecha_base.year + m // 12
