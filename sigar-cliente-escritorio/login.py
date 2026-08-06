@@ -10,8 +10,8 @@ try:
 except ImportError:
     HAS_APP_INVENTARIO = False
 
-# --- CONFIGURACIÓN DE CONEXIÓN A LA API EN RENDER ---
-BASE_URL = "https://sigar-api.onrender.com"
+# --- CONFIGURACIÓN DE CONEXIÓN A LA API EN RENDER (UNELLEZ) ---
+BASE_URL = "https://sigar-unellez.onrender.com"
 
 API_LOGIN_URL = f"{BASE_URL}/api/auth/login"
 API_REGISTER_URL = f"{BASE_URL}/api/auth/register"
@@ -20,7 +20,7 @@ API_REGISTER_URL = f"{BASE_URL}/api/auth/register"
 class LoginWindow:
     def __init__(self, root):
         self.root = root
-        self.root.title("SIGAR - Inicio de Sesión")
+        self.root.title("SIGAR (UNELLEZ) - Inicio de Sesión")
         self.root.geometry("400x520")
         self.root.resizable(False, False)
         self.root.configure(bg="#0b3c5d")  # Azul corporativo SIGAR
@@ -133,7 +133,7 @@ class LoginWindow:
         # Indicador de estado de conexión
         self.lbl_status = tk.Label(
             frame_card, 
-            text="🌐 Sincronizado con Render Cloud", 
+            text="🌐 Sincronizado con UNELLEZ Cloud", 
             font=("Segoe UI", 8), 
             fg="#95a5a6", 
             bg="#ffffff"
@@ -183,7 +183,7 @@ class LoginWindow:
             messagebox.showerror("Error de Conexión", f"No se pudo conectar con el servidor:\n{e}")
         finally:
             self.btn_ingresar.config(state="normal", text="INICIAR SESIÓN")
-            self.lbl_status.config(text="🌐 Sincronizado con Render Cloud", fg="#95a5a6")
+            self.lbl_status.config(text="🌐 Sincronizado con UNELLEZ Cloud", fg="#95a5a6")
 
     def abrir_ventana_registro(self):
         """Ventana modal para registrar un nuevo usuario en la API de Render."""

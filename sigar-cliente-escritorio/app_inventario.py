@@ -14,14 +14,14 @@ try:
 except ImportError:
     HAS_REPORTLAB = False
 
-# --- CONFIGURACIÓN DE CONEXIÓN A LA API EN RENDER ---
-BASE_URL = "https://sigar-api.onrender.com"
+# --- CONFIGURACIÓN DE CONEXIÓN A LA API EN RENDER (UNELLEZ) ---
+BASE_URL = "https://sigar-unellez.onrender.com"
 API_BASE_URL = f"{BASE_URL}/api"
 
 class InventarioBienesApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("SIGAR - Sistema de Inventario y Gestión de Activos y Recursos")
+        self.root.title("SIGAR (UNELLEZ) - Sistema de Inventario y Gestión de Activos y Recursos")
         self.root.geometry("1060x680")
         self.root.configure(bg="#f4f6f9")
         
@@ -141,7 +141,7 @@ class InventarioBienesApp:
         btn_eliminar = tk.Button(frame_acciones, text="Dar de Baja / Generar Acta PDF", bg="#d9534f", fg="white", font=("Segoe UI", 9, "bold"), command=self.dar_de_baja_bien, bd=0, padx=12, pady=6, cursor="hand2")
         btn_eliminar.pack(side="left")
         
-        lbl_info = tk.Label(frame_acciones, text="SIGAR V1.0 - Sincronizado con Render Cloud", font=("Segoe UI", 9, "italic"), fg="#7f8c8d", bg="#f4f6f9")
+        lbl_info = tk.Label(frame_acciones, text="SIGAR V1.0 - Sincronizado con UNELLEZ Cloud", font=("Segoe UI", 9, "italic"), fg="#7f8c8d", bg="#f4f6f9")
         lbl_info.pack(side="right", pady=5)
         
         # Cargar datos desde la nube y llenar GUI
