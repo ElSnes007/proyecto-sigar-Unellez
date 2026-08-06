@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-import json
 import os
 import calendar
 from datetime import datetime, date, timedelta
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+import requests
 
 # Intentar importar ReportLab para generación nativa de PDF
 try:
@@ -14,9 +14,9 @@ try:
 except ImportError:
     HAS_REPORTLAB = False
 
-# Archivos de persistencia
-DB_FILE = "bienes.json"
-DB_BAJAS_FILE = "bienes_bajas.json"
+# --- CONFIGURACIÓN DE CONEXIÓN A LA API EN RENDER ---
+BASE_URL = "https://sigar-api.onrender.com"
+API_BASE_URL = f"{BASE_URL}/api"
 
 class InventarioBienesApp:
     def __init__(self, root):
@@ -24,9 +24,6 @@ class InventarioBienesApp:
         self.root.title("SIGAR - Sistema de Inventario y Gestión de Activos y Recursos")
         self.root.geometry("1060x680")
         self.root.configure(bg="#f4f6f9")
-        
-        # Cargar datos iniciales
-        self.bienes = self.cargar_datos()
         
         # Estilos de Tkinter
         self.style = ttk.Style()
@@ -49,11 +46,8 @@ class InventarioBienesApp:
         self.entry_id.grid(row=0, column=1, padx=5, pady=6, sticky="ew")
         
         tk.Label(frame_form, text="Asignado a:", bg="#ffffff", font=("Segoe UI", 9, "bold")).grid(row=0, column=2, padx=(10, 5), pady=6, sticky="e")
-        opciones_asignacion = self.obtener_opciones_asignacion()
-        self.combo_asignado = ttk.Combobox(frame_form, values=opciones_asignacion, font=("Segoe UI", 9))
+        self.combo_asignado = ttk.Combobox(frame_form, font=("Segoe UI", 9))
         self.combo_asignado.grid(row=0, column=3, columnspan=3, padx=5, pady=6, sticky="ew")
-        if opciones_asignacion:
-            self.combo_asignado.current(0)
             
         # Contenedor de Botones de Formulario
         frame_btn_form = tk.Frame(frame_form, bg="#ffffff")
@@ -147,10 +141,17 @@ class InventarioBienesApp:
         btn_eliminar = tk.Button(frame_acciones, text="Dar de Baja / Generar Acta PDF", bg="#d9534f", fg="white", font=("Segoe UI", 9, "bold"), command=self.dar_de_baja_bien, bd=0, padx=12, pady=6, cursor="hand2")
         btn_eliminar.pack(side="left")
         
-        lbl_info = tk.Label(frame_acciones, text="SIGAR V1.0 - Entorno Corporativo", font=("Segoe UI", 9, "italic"), fg="#7f8c8d", bg="#f4f6f9")
+        lbl_info = tk.Label(frame_acciones, text="SIGAR V1.0 - Sincronizado con Render Cloud", font=("Segoe UI", 9, "italic"), fg="#7f8c8d", bg="#f4f6f9")
         lbl_info.pack(side="right", pady=5)
         
-        # Cargar datos iniciales
+        # Cargar datos desde la nube y llenar GUI
+        self.bienes = self.cargar_datos()
+        
+        opciones_asignacion = self.obtener_opciones_asignacion()
+        self.combo_asignado["values"] = opciones_asignacion
+        if opciones_asignacion:
+            self.combo_asignado.current(0)
+            
         self.actualizar_tabla()
         self.calcular_proxima_fecha_mantenimiento()
         self.root.after(200, self.activar_foco_inicial)
@@ -158,6 +159,126 @@ class InventarioBienesApp:
     def activar_foco_inicial(self):
         self.root.focus_force()
         self.entry_id.focus_force()
+
+    def cargar_datos(self):
+        """Descarga los activos desde la API en Render."""
+        try:
+            # Soporta tanto /api/activos como /activos por compatibilidad
+            url_peticion = f"{API_BASE_URL}/activos"
+            respuesta = requests.get(url_peticion, timeout=45)
+            
+            # Si responde 404 en /api/activos, probar endpoint raíz
+            if respuesta.status_code == 404:
+                respuesta = requests.get(f"{BASE_URL}/activos", timeout=45)
+
+            if respuesta.status_code == 200:
+                return respuesta.json()
+            else:
+                messagebox.showerror("Error de Servidor", f"No se pudo sincronizar los datos. Código: {respuesta.status_code}")
+                return []
+        except Exception as e:
+            messagebox.showwarning("Error de Conexión", f"No hay comunicación con la nube en Render:\n{e}")
+            return []
+
+    def agregar_bien(self):
+        id_val = self.entry_id.get().strip()
+        nombre_val = self.entry_nombre.get().strip()
+        asignado_val = self.combo_asignado.get().strip()
+        mant_val = self.combo_mant.get()
+        fecha_mant_val = self.entry_fecha_mant.get().strip()
+        proximo_val = self.entry_proximo.get().strip()
+        desc_mant_val = self.entry_desc_mant.get().strip()
+        
+        if not id_val or not nombre_val or not asignado_val:
+            messagebox.showwarning("Campos Incompletos", "Por favor, complete el ID, Nombre/Detalles y 'Asignado a'.")
+            return
+            
+        try:
+            id_int = int(id_val)
+        except ValueError:
+            messagebox.showwarning("Tipo Incorrecto", "El ID debe ser un número entero.")
+            return
+            
+        nuevo_bien = {
+            "id": id_int, 
+            "nombre": nombre_val, 
+            "asignado_a": asignado_val,
+            "mantenimiento": mant_val,
+            "fecha_mant": fecha_mant_val if mant_val != "No" else "N/A",
+            "proximo_mant": proximo_val if mant_val != "No" else "N/A",
+            "desc_mant": desc_mant_val if mant_val != "No" else ""
+        }
+        
+        try:
+            r = requests.post(f"{API_BASE_URL}/activos", json=nuevo_bien, timeout=45)
+            if r.status_code in (200, 201):
+                self.bienes = self.cargar_datos()
+                
+                opciones_actuales = list(self.combo_asignado["values"])
+                if asignado_val not in opciones_actuales:
+                    opciones_actuales.append(asignado_val)
+                    self.combo_asignado["values"] = opciones_actuales
+                
+                self.actualizar_tabla()
+                self.limpiar_formulario()
+                messagebox.showinfo("Registro Exitoso", "El bien ha sido añadido correctamente a la nube.")
+            else:
+                err = r.json().get("detail", "Error al registrar en el servidor.")
+                messagebox.showerror("Error de Registro", f"No se pudo guardar: {err}")
+        except Exception as e:
+            messagebox.showerror("Error de Conexión", f"Fallo de red al conectar con Render: {e}")
+
+    def actualizar_bien(self):
+        id_val = self.entry_id.get().strip()
+        if not id_val:
+            messagebox.showwarning("Sin ID", "Ingrese o seleccione el ID del activo que desea actualizar.")
+            return
+            
+        try:
+            id_int = int(id_val)
+        except ValueError:
+            messagebox.showwarning("Tipo Incorrecto", "El ID debe ser numérico.")
+            return
+            
+        nombre_val = self.entry_nombre.get().strip()
+        asignado_val = self.combo_asignado.get().strip()
+        mant_val = self.combo_mant.get()
+        fecha_mant_val = self.entry_fecha_mant.get().strip()
+        proximo_val = self.entry_proximo.get().strip()
+        desc_mant_val = self.entry_desc_mant.get().strip()
+        
+        if not nombre_val or not asignado_val:
+            messagebox.showwarning("Campos Incompletos", "Por favor, complete el Nombre/Detalles y 'Asignado a'.")
+            return
+            
+        bien_actualizado = {
+            "id": id_int,
+            "nombre": nombre_val,
+            "asignado_a": asignado_val,
+            "mantenimiento": mant_val,
+            "fecha_mant": fecha_mant_val if mant_val != "No" else "N/A",
+            "proximo_mant": proximo_val if mant_val != "No" else "N/A",
+            "desc_mant": desc_mant_val if mant_val != "No" else ""
+        }
+        
+        try:
+            r = requests.put(f"{API_BASE_URL}/activos/{id_int}", json=bien_actualizado, timeout=45)
+            if r.status_code == 200:
+                self.bienes = self.cargar_datos()
+                
+                opciones_actuales = list(self.combo_asignado["values"])
+                if asignado_val not in opciones_actuales:
+                    opciones_actuales.append(asignado_val)
+                    self.combo_asignado["values"] = opciones_actuales
+                    
+                self.actualizar_tabla()
+                self.limpiar_formulario()
+                messagebox.showinfo("Actualización Exitosa", f"Los datos del activo ID {id_int} han sido modificados en la nube.")
+            else:
+                err = r.json().get("detail", "Error en el servidor.")
+                messagebox.showerror("Error de Servidor", f"No se pudo actualizar: {err}")
+        except Exception as e:
+            messagebox.showerror("Error de Conexión", f"Fallo al comunicarse con Render: {e}")
 
     def dar_de_baja_bien(self):
         seleccion = self.tabla.selection()
@@ -185,53 +306,47 @@ class InventarioBienesApp:
 
         confirmacion = messagebox.askyesno(
             "Confirmar Desincorporación", 
-            f"¿Está seguro de desincorporar el activo ID {id_bien}?\n\nMotivo: {motivo}\n\nEsta acción registrará la baja y generará el acta PDF correspondiente."
+            f"¿Está seguro de desincorporar el activo ID {id_bien}?\n\nMotivo: {motivo}\n\nEsta acción registrará la baja en la nube y generará el acta PDF correspondiente."
         )
         
         if confirmacion:
-            bien_objetivo = next((b for b in self.bienes if b["id"] == id_bien), None)
-            fecha_hora_baja = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-            
-            registro_baja = {
-                "id": id_bien,
-                "nombre": nombre_bien,
-                "asignado_a": bien_objetivo.get("asignado_a", "N/A") if bien_objetivo else "N/A",
-                "mantenimiento": bien_objetivo.get("mantenimiento", "N/A") if bien_objetivo else "N/A",
-                "fecha_ultimo_mant": bien_objetivo.get("fecha_mant", "N/A") if bien_objetivo else "N/A",
-                "desc_mant": bien_objetivo.get("desc_mant", "") if bien_objetivo else "",
-                "motivo_baja": motivo,
-                "fecha_baja": fecha_hora_baja
-            }
-            
-            self.guardar_registro_baja(registro_baja)
-            self.bienes = [b for b in self.bienes if b["id"] != id_bien]
-            self.guardar_datos(self.bienes)
-            archivo_generado = self.generar_acta_baja(registro_baja)
-            
-            self.actualizar_tabla()
-            self.limpiar_formulario()
-            
-            messagebox.showinfo(
-                "Baja Procesada con Éxito", 
-                f"El activo ID {id_bien} ha sido desincorporado del inventario activo.\n\n"
-                f"📄 Registro guardado en histórico.\n"
-                f"📁 Documento generado: {archivo_generado}"
-            )
-
-    def guardar_registro_baja(self, registro):
-        bajas = []
-        if os.path.exists(DB_BAJAS_FILE):
             try:
-                with open(DB_BAJAS_FILE, 'r', encoding='utf-8') as f:
-                    bajas = json.load(f)
-            except Exception:
-                bajas = []
-        bajas.append(registro)
-        try:
-            with open(DB_BAJAS_FILE, 'w', encoding='utf-8') as f:
-                json.dump(bajas, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            messagebox.showerror("Error de Registro", f"No se pudo guardar la baja en el histórico: {e}")
+                r = requests.post(
+                    f"{API_BASE_URL}/activos/{id_bien}/baja",
+                    json={"motivo": motivo},
+                    timeout=45
+                )
+                if r.status_code == 200:
+                    bien_objetivo = next((b for b in self.bienes if b["id"] == id_bien), None)
+                    fecha_hora_baja = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+                    
+                    registro_baja = {
+                        "id": id_bien,
+                        "nombre": nombre_bien,
+                        "asignado_a": bien_objetivo.get("asignado_a", "N/A") if bien_objetivo else "N/A",
+                        "mantenimiento": bien_objetivo.get("mantenimiento", "N/A") if bien_objetivo else "N/A",
+                        "fecha_ultimo_mant": bien_objetivo.get("fecha_mant", "N/A") if bien_objetivo else "N/A",
+                        "desc_mant": bien_objetivo.get("desc_mant", "") if bien_objetivo else "",
+                        "motivo_baja": motivo,
+                        "fecha_baja": fecha_hora_baja
+                    }
+                    
+                    archivo_generado = self.generar_acta_baja(registro_baja)
+                    
+                    self.bienes = self.cargar_datos()
+                    self.actualizar_tabla()
+                    self.limpiar_formulario()
+                    
+                    messagebox.showinfo(
+                        "Baja Procesada con Éxito", 
+                        f"El activo ID {id_bien} ha sido desincorporado en la nube.\n\n"
+                        f"📄 Documento generado: {archivo_generado}"
+                    )
+                else:
+                    err = r.json().get("detail", "Error en el servidor.")
+                    messagebox.showerror("Error", f"No se pudo procesar la baja: {err}")
+            except Exception as e:
+                messagebox.showerror("Error de Conexión", f"Fallo al procesar la baja en la nube: {e}")
 
     def generar_acta_baja(self, registro):
         nombre_base = f"Acta_Baja_ID_{registro['id']}"
@@ -379,52 +494,6 @@ Responsable del Equipo                  Bienes y Suministros
             self.calcular_proxima_fecha_mantenimiento()
             self.entry_nombre.focus_force()
 
-    def actualizar_bien(self):
-        id_val = self.entry_id.get().strip()
-        if not id_val:
-            messagebox.showwarning("Sin ID", "Ingrese o seleccione el ID del activo que desea actualizar.")
-            return
-            
-        try:
-            id_int = int(id_val)
-        except ValueError:
-            messagebox.showwarning("Tipo Incorrecto", "El ID debe ser numérico.")
-            return
-            
-        bien = next((b for b in self.bienes if b["id"] == id_int), None)
-        if not bien:
-            messagebox.showerror("No Encontrado", f"No existe ningún activo registrado con el ID {id_int}.")
-            return
-            
-        nombre_val = self.entry_nombre.get().strip()
-        asignado_val = self.combo_asignado.get().strip()
-        mant_val = self.combo_mant.get()
-        fecha_mant_val = self.entry_fecha_mant.get().strip()
-        proximo_val = self.entry_proximo.get().strip()
-        desc_mant_val = self.entry_desc_mant.get().strip()
-        
-        if not nombre_val or not asignado_val:
-            messagebox.showwarning("Campos Incompletos", "Por favor, complete al menos el Nombre/Detalles y el campo 'Asignado a'.")
-            return
-            
-        bien["nombre"] = nombre_val
-        bien["asignado_a"] = asignado_val
-        bien["mantenimiento"] = mant_val
-        bien["fecha_mant"] = fecha_mant_val if mant_val != "No" else "N/A"
-        bien["proximo_mant"] = proximo_val if mant_val != "No" else "N/A"
-        bien["desc_mant"] = desc_mant_val if mant_val != "No" else ""
-        
-        self.guardar_datos(self.bienes)
-        
-        opciones_actuales = list(self.combo_asignado["values"])
-        if asignado_val not in opciones_actuales:
-            opciones_actuales.append(asignado_val)
-            self.combo_asignado["values"] = opciones_actuales
-            
-        self.actualizar_tabla()
-        self.limpiar_formulario()
-        messagebox.showinfo("Actualización Exitosa", f"Los datos del activo ID {id_int} han sido modificados correctamente.")
-
     def limpiar_formulario(self):
         self.entry_id.delete(0, tk.END)
         self.entry_nombre.delete(0, tk.END)
@@ -470,57 +539,16 @@ Responsable del Equipo                  Bienes y Suministros
     def obtener_opciones_asignacion(self):
         opciones_base = ["Almacén / Stock", "Dirección General", "Coordinación de Sistemas", "Recursos Humanos"]
         existentes = list(opciones_base)
-        for bien in self.bienes:
+        for bien in getattr(self, 'bienes', []):
             val = bien.get("asignado_a")
             if val and val not in existentes:
                 existentes.append(val)
         return existentes
 
-    def cargar_datos(self):
-        if os.path.exists(DB_FILE):
-            try:
-                with open(DB_FILE, 'r', encoding='utf-8') as f:
-                    datos = json.load(f)
-                    for d in datos:
-                        if "asignado_a" not in d:
-                            d["asignado_a"] = d.pop("estado", "Almacén / Stock")
-                        if "mantenimiento" not in d:
-                            d["mantenimiento"] = "No"
-                        if "fecha_mant" not in d:
-                            d["fecha_mant"] = "N/A"
-                        if "proximo_mant" not in d:
-                            d["proximo_mant"] = "N/A"
-                        if "desc_mant" not in d:
-                            d["desc_mant"] = ""
-                    return datos
-            except Exception:
-                return []
-        else:
-            data_inicial = [
-                {
-                    "id": 1, 
-                    "nombre": "Laptop Dell Latitude 3420 Core i7 16GB RAM SSD 512GB", 
-                    "asignado_a": "Coordinación de Sistemas",
-                    "mantenimiento": "Sí (Preventivo)",
-                    "fecha_mant": "15/05/2026",
-                    "proximo_mant": "17/08/2026",
-                    "desc_mant": "Limpieza de ventiladores y cambio de pasta térmica"
-                }
-            ]
-            self.guardar_datos(data_inicial)
-            return data_inicial
-
-    def guardar_datos(self, datos):
-        try:
-            with open(DB_FILE, 'w', encoding='utf-8') as f:
-                json.dump(datos, f, indent=4, ensure_ascii=False)
-        except Exception as e:
-            messagebox.showerror("Error de Almacenamiento", f"No se pudo escribir en la base de datos: {e}")
-
     def actualizar_tabla(self):
         for item in self.tabla.get_children():
             self.tabla.delete(item)
-        for bien in self.bienes:
+        for bien in getattr(self, 'bienes', []):
             self.tabla.insert("", "end", values=(
                 bien["id"], 
                 bien["nombre"], 
@@ -529,51 +557,6 @@ Responsable del Equipo                  Bienes y Suministros
                 bien.get("fecha_mant", "N/A"),
                 bien.get("proximo_mant", "N/A")
             ))
-
-    def agregar_bien(self):
-        id_val = self.entry_id.get().strip()
-        nombre_val = self.entry_nombre.get().strip()
-        asignado_val = self.combo_asignado.get().strip()
-        mant_val = self.combo_mant.get()
-        fecha_mant_val = self.entry_fecha_mant.get().strip()
-        proximo_val = self.entry_proximo.get().strip()
-        desc_mant_val = self.entry_desc_mant.get().strip()
-        
-        if not id_val or not nombre_val or not asignado_val:
-            messagebox.showwarning("Campos Incompletos", "Por favor, complete al menos el ID, Nombre/Detalles y el campo 'Asignado a'.")
-            return
-            
-        try:
-            id_int = int(id_val)
-        except ValueError:
-            messagebox.showwarning("Tipo Incorrecto", "El ID debe ser un valor numérico entero.")
-            return
-            
-        if any(b["id"] == id_int for b in self.bienes):
-            messagebox.showerror("ID Duplicado", f"El ID {id_int} ya existe. Si desea modificar este bien, use el botón 'Guardar Cambios'.")
-            return
-            
-        nuevo_bien = {
-            "id": id_int, 
-            "nombre": nombre_val, 
-            "asignado_a": asignado_val,
-            "mantenimiento": mant_val,
-            "fecha_mant": fecha_mant_val if mant_val != "No" else "N/A",
-            "proximo_mant": proximo_val if mant_val != "No" else "N/A",
-            "desc_mant": desc_mant_val if mant_val != "No" else ""
-        }
-        
-        self.bienes.append(nuevo_bien)
-        self.guardar_datos(self.bienes)
-        
-        opciones_actuales = list(self.combo_asignado["values"])
-        if asignado_val not in opciones_actuales:
-            opciones_actuales.append(asignado_val)
-            self.combo_asignado["values"] = opciones_actuales
-        
-        self.actualizar_tabla()
-        self.limpiar_formulario()
-        messagebox.showinfo("Registro Exitoso", "El bien ha sido añadido correctamente.")
 
 if __name__ == "__main__":
     root = tk.Tk()

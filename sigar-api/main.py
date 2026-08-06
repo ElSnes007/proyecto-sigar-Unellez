@@ -78,9 +78,9 @@ class BajaRequest(BaseModel):
 
 # --- ENDPOINTS ---
 
-@app.get("/")
-def read_root():
-    return {"status": "online", "sistema": "SIGAR API Cloud"}
+@app.get("/ping")
+def health_check():
+    return {"status": "ok"}
 
 # 1. Autenticación / Registro
 @app.post("/api/auth/login")
