@@ -282,26 +282,64 @@ class InventarioBienesApp:
         t = "oscuro" if self.modo_oscuro else "claro"
         pal = self.PALETA[t]
 
+        # 1. Fondo principal de la ventana
+        self.root.config(bg=pal["bg_root"])
+
+        # 2. Estado del botón de modo oscuro
         if self.modo_oscuro:
             self.btn_modo_oscuro.config(text="☀️ Modo Claro", bg="#f59e0b", fg="#0f172a", activebackground="#fbbf24")
         else:
             self.btn_modo_oscuro.config(text="🌙 Cuidado de Vista", bg="#1e293b", fg="#f8fafc", activebackground="#334155")
 
-        self.frame_form.config(bg=pal["bg_panel"], fg=pal["fg_texto"], highlightbackground=pal["border_panel"])
+        # 3. Formulario principal como Tarjeta / Panel
+        # Se usa un borde plano de 1px (highlightthickness) sin relieves 3D nativos
+        self.frame_form.config(
+            bg=pal["bg_panel"], 
+            fg=pal["fg_texto"], 
+            bd=0,
+            highlightthickness=1,
+            highlightbackground=pal["border_panel"],
+            highlightcolor=pal["border_panel"]
+        )
+        
+        # 4. Todos los textos y sub-marcos dentro del formulario adoptan bg_panel
         for lbl in self.labels_texto:
             lbl.config(bg=pal["bg_panel"], fg=pal["fg_texto"])
             
         for f in self.frames_form_internos:
             f.config(bg=pal["bg_panel"])
 
+        # 5. Cajas de texto (Entry)
         for entry in self.entries_widgets:
-            entry.config(bg=pal["entry_bg"], fg=pal["entry_fg"], insertbackground=pal["entry_fg"], highlightbackground=pal["entry_border"])
+            entry.config(
+                bg=pal["entry_bg"], 
+                fg=pal["entry_fg"], 
+                insertbackground=pal["entry_fg"], 
+                highlightbackground=pal["entry_border"],
+                highlightthickness=1,
+                bd=0
+            )
 
+        # 6. Estilizado uniforme para Comboboxes (Desplegables)
+        self.style.theme_use("default")
+        self.style.configure(
+            "TCombobox",
+            fieldbackground=pal["entry_bg"],
+            background=pal["entry_bg"],
+            foreground=pal["entry_fg"],
+            darkcolor=pal["entry_bg"],
+            lightcolor=pal["entry_bg"],
+            selectbackground=pal["entry_bg"],
+            selectforeground=pal["entry_fg"]
+        )
+
+        # 7. Elementos auxiliares del pie
         self.entry_proximo.config(bg=pal["bg_root"], fg=pal["fg_texto"])
         self.lbl_info_pie.config(bg=pal["bg_root"], fg=pal["fg_subtexto"])
         self.lbl_indicador_busqueda.config(bg=pal["bg_root"], fg=pal["fg_subtexto"])
         self.lbl_icon_buscar.config(bg=pal["bg_root"], fg=pal["fg_texto"])
 
+        # 8. Tarjetas KPI
         for i, card_info in enumerate(self.tarjetas_widgets):
             cfg = pal["kpis"][i]
             card_info["card"].config(bg=cfg["bg"], highlightbackground=cfg["border"])
@@ -311,6 +349,7 @@ class InventarioBienesApp:
             card_info["val"].config(bg=cfg["bg"], fg=cfg["val"])
             card_info["sub"].config(bg=cfg["bg"], fg=cfg["sub"])
 
+        # 9. Tabla (Treeview)
         self.style.configure("Treeview", background=pal["tree_bg"], foreground=pal["tree_fg"], fieldbackground=pal["tree_bg"])
         self.style.configure("Treeview.Heading", background=pal["tree_head_bg"], foreground=pal["tree_head_fg"])
 
