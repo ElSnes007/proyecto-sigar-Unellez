@@ -1,10 +1,17 @@
-# -# -*- coding: utf-8 -*-
+# -*# -*- coding: utf-8 -*-
 import os
 import json
 import calendar
 from datetime import datetime, date, timedelta
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
+
+# Intentar importar PIL (Pillow) para escalado de imagen de alta calidad
+try:
+    from PIL import Image, ImageTk
+    HAS_PIL = True
+except ImportError:
+    HAS_PIL = False
 
 # Intentar importar ReportLab para generación nativa de PDF
 try:
@@ -25,6 +32,7 @@ except ImportError:
 ARCHIVO_BIENES = "bienes.json"
 ARCHIVO_BAJAS = "bienes_bajas.json"
 URL_RESPALDO_CLOUD = "https://sigar-unellez.onrender.com/api/respaldo"
+ARCHIVO_LOGO = "UNELLEZ LOGO.png"  # Nombre exacto del archivo de logo en la carpeta
 
 class InventarioBienesApp:
     def __init__(self, root):
@@ -54,11 +62,11 @@ class InventarioBienesApp:
                 "tree_head_bg": "#002B49",
                 "tree_head_fg": "#ffffff",
                 "kpis": [
-                    {"bg": "#f1f5f9", "border": "#475569", "text": "#334155", "val": "#0f172a", "sub": "#64748b"}, # Total (Slate Pastel)
-                    {"bg": "#ecfdf5", "border": "#10b981", "text": "#047857", "val": "#064e3b", "sub": "#059669"}, # Operativos (Menta/Esmeralda Pastel)
-                    {"bg": "#f0f9ff", "border": "#0284c7", "text": "#0369a1", "val": "#0c4a6e", "sub": "#0284c7"}, # Preventivos (Azul Cielo Pastel)
-                    {"bg": "#fffbeb", "border": "#f59e0b", "text": "#b45309", "val": "#78350f", "sub": "#d97706"}, # Correctivos (Ámbar Pastel)
-                    {"bg": "#fff1f2", "border": "#f43f5e", "text": "#be123c", "val": "#881337", "sub": "#e11d48"}  # Desincorporados (Rosa Pastel)
+                    {"bg": "#f1f5f9", "border": "#475569", "text": "#334155", "val": "#0f172a", "sub": "#64748b"}, # Total
+                    {"bg": "#ecfdf5", "border": "#10b981", "text": "#047857", "val": "#064e3b", "sub": "#059669"}, # Operativos
+                    {"bg": "#f0f9ff", "border": "#0284c7", "text": "#0369a1", "val": "#0c4a6e", "sub": "#0284c7"}, # Preventivos
+                    {"bg": "#fffbeb", "border": "#f59e0b", "text": "#b45309", "val": "#78350f", "sub": "#d97706"}, # Correctivos
+                    {"bg": "#fff1f2", "border": "#f43f5e", "text": "#be123c", "val": "#881337", "sub": "#e11d48"}  # Desincorporados
                 ]
             },
             "oscuro": {
@@ -113,11 +121,6 @@ class InventarioBienesApp:
 
         # Cargar datos locales e inicializar
         self.bienes = self.cargar_datos_locales()
-        
-        opciones_asignacion = self.obtener_opciones_asignacion()
-        self.combo_asignado["values"] = opciones_asignacion
-        if opciones_asignacion:
-            self.combo_asignado.current(0)
             
         self.actualizar_tabla()
         self.actualizar_metricas()
@@ -128,17 +131,43 @@ class InventarioBienesApp:
         self.root.focus_force()
         self.entry_id.focus_force()
 
-    # --- 1. CINTILLO INSTITUCIONAL Y BOTÓN MODO OSCURO ---
+    # --- 1. CINTILLO INSTITUCIONAL Y LOGO UNELLEZ ---
     def crear_cintillo_institucional(self):
-        self.frame_cintillo = tk.Frame(self.root, bg="#002B49", height=38)
+        self.frame_cintillo = tk.Frame(self.root, bg="#002B49", height=42)
         self.frame_cintillo.pack(fill="x", side="top")
         
+        # Contenedor para Logo + Texto
+        frame_logo_titulo = tk.Frame(self.frame_cintillo, bg="#002B49")
+        frame_logo_titulo.pack(side="left", padx=12, pady=4)
+
+        # Cargar la imagen del logo
+        self.logo_img = None
+        if os.path.exists(ARCHIVO_LOGO):
+            try:
+                if HAS_PIL:
+                    img_pil = Image.open(ARCHIVO_LOGO).resize((64, 64), Image.Resampling.LANCZOS)
+                    self.logo_img = ImageTk.PhotoImage(img_pil)
+                else:
+                    raw_img = tk.PhotoImage(file=ARCHIVO_LOGO)
+                    w_factor = max(1, raw_img.width() // 28)
+                    h_factor = max(1, raw_img.height() // 28)
+                    self.logo_img = raw_img.subsample(w_factor, h_factor)
+            except Exception:
+                self.logo_img = None
+
+        if self.logo_img:
+            lbl_logo = tk.Label(frame_logo_titulo, image=self.logo_img, bg="#002B49")
+            lbl_logo.pack(side="left", padx=(0, 8))
+
+        # Texto "UNELLEZ" destacado en naranja
         lbl_unellez = tk.Label(
-            self.frame_cintillo, 
-            text="  UNELLEZ  |  Universidad Nacional Experimental de los Llanos Occidentales 'Ezequiel Zamora'",
-            font=("Segoe UI", 9, "bold"), fg="#ffffff", bg="#002B49"
+            frame_logo_titulo, 
+            text="UNELLEZ", 
+            font=("Segoe UI", 13, "bold"), 
+            fg="#FF6600", 
+            bg="#002B49"
         )
-        lbl_unellez.pack(side="left", padx=10, pady=6)
+        lbl_unellez.pack(side="left")
 
         # Botón para activar/desactivar Cuidado de Vista / Modo Oscuro
         self.btn_modo_oscuro = tk.Button(
@@ -163,14 +192,12 @@ class InventarioBienesApp:
     def toggle_modo_oscuro_animado(self):
         self.modo_oscuro = not self.modo_oscuro
         
-        # Colores de origen y destino para la animación de fondo
         color_inicio = self.PALETA["oscuro" if not self.modo_oscuro else "claro"]["bg_root"]
         color_fin = self.PALETA["oscuro" if self.modo_oscuro else "claro"]["bg_root"]
         
         rgb_inicio = self.hex_a_rgb(color_inicio)
         rgb_fin = self.hex_a_rgb(color_fin)
         
-        # Iniciar animación de transición suave
         self.animar_transicion_bg(rgb_inicio, rgb_fin, paso=0, total_pasos=12)
 
     def hex_a_rgb(self, hex_str):
@@ -202,13 +229,11 @@ class InventarioBienesApp:
         t = "oscuro" if self.modo_oscuro else "claro"
         pal = self.PALETA[t]
 
-        # Actualizar botón de tema
         if self.modo_oscuro:
             self.btn_modo_oscuro.config(text="☀️ Modo Claro", bg="#f59e0b", fg="#0f172a", activebackground="#fbbf24")
         else:
             self.btn_modo_oscuro.config(text="🌙 Cuidado de Vista", bg="#1e293b", fg="#f8fafc", activebackground="#334155")
 
-        # Formularios y Labels Generales
         self.frame_form.config(bg=pal["bg_panel"], fg=pal["fg_texto"], highlightbackground=pal["border_panel"])
         for lbl in self.labels_texto:
             lbl.config(bg=pal["bg_panel"], fg=pal["fg_texto"])
@@ -224,7 +249,6 @@ class InventarioBienesApp:
         self.lbl_indicador_busqueda.config(bg=pal["bg_root"], fg=pal["fg_subtexto"])
         self.lbl_icon_buscar.config(bg=pal["bg_root"], fg=pal["fg_texto"])
 
-        # Actualizar Tarjetas KPIs (Colores Pasteles en Modo Claro)
         for i, card_info in enumerate(self.tarjetas_widgets):
             cfg = pal["kpis"][i]
             card_info["card"].config(bg=cfg["bg"], highlightbackground=cfg["border"])
@@ -234,7 +258,6 @@ class InventarioBienesApp:
             card_info["val"].config(bg=cfg["bg"], fg=cfg["val"])
             card_info["sub"].config(bg=cfg["bg"], fg=cfg["sub"])
 
-        # Estilo del Treeview
         self.style.configure("Treeview", background=pal["tree_bg"], foreground=pal["tree_fg"], fieldbackground=pal["tree_bg"])
         self.style.configure("Treeview.Heading", background=pal["tree_head_bg"], foreground=pal["tree_head_fg"])
 
@@ -322,7 +345,6 @@ class InventarioBienesApp:
         
         self.frames_form_internos = []
         
-        # Fila 0
         lbl1 = tk.Label(self.frame_form, text="ID único:", font=("Segoe UI", 8, "bold"))
         lbl1.grid(row=0, column=0, padx=(10, 5), pady=4, sticky="e")
         self.entry_id = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
@@ -330,10 +352,38 @@ class InventarioBienesApp:
         
         lbl2 = tk.Label(self.frame_form, text="Asignado a:", font=("Segoe UI", 8, "bold"))
         lbl2.grid(row=0, column=2, padx=(10, 5), pady=4, sticky="e")
-        self.combo_asignado = ttk.Combobox(self.frame_form, font=("Segoe UI", 9))
+        
+        # Opciones fijas para la asignación
+        opciones_asignacion = ["Departamento de Sistemas", "Administración", "Laboratorio 1", "Rectorado"]
+        
+        # Estilo personalizado para el Combobox (letras negras, fondo claro)
+        estilo_combo = ttk.Style()
+        estilo_combo.theme_use('clam')
+        estilo_combo.configure(
+            "TCombobox",
+            fieldbackground="#f9f9f9",
+            background="#ffffff",
+            foreground="#000000"
+        )
+        estilo_combo.map(
+            "TCombobox",
+            fieldbackground=[("readonly", "#f9f9f9")],
+            selectbackground=[("readonly", "#e0e0e0")],
+            selectforeground=[("readonly", "#000000")]
+        )
+
+        self.combo_asignado = ttk.Combobox(
+            self.frame_form, 
+            values=opciones_asignacion, 
+            font=("Segoe UI", 9), 
+            state="readonly",
+            style="TCombobox"
+        )
         self.combo_asignado.grid(row=0, column=3, columnspan=3, padx=5, pady=4, sticky="ew")
+        
+        if opciones_asignacion:
+            self.combo_asignado.current(0)
             
-        # Botones de Formulario
         frame_btn_form = tk.Frame(self.frame_form)
         frame_btn_form.grid(row=0, column=6, rowspan=4, padx=10, pady=4, sticky="ns")
         self.frames_form_internos.append(frame_btn_form)
@@ -347,13 +397,11 @@ class InventarioBienesApp:
         btn_limpiar = tk.Button(frame_btn_form, text="Limpiar Campos", bg="#6b7280", fg="white", font=("Segoe UI", 8, "bold"), command=self.limpiar_formulario, bd=0, padx=10, pady=3, cursor="hand2")
         btn_limpiar.pack(fill="x", pady=2)
         
-        # Fila 1
         lbl3 = tk.Label(self.frame_form, text="Descripción / Nombre:", font=("Segoe UI", 8, "bold"))
         lbl3.grid(row=1, column=0, padx=(10, 5), pady=4, sticky="e")
         self.entry_nombre = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
         self.entry_nombre.grid(row=1, column=1, columnspan=5, padx=5, pady=4, sticky="ew")
         
-        # Fila 2
         lbl4 = tk.Label(self.frame_form, text="¿Mantenimiento?:", font=("Segoe UI", 8, "bold"))
         lbl4.grid(row=2, column=0, padx=(10, 5), pady=4, sticky="e")
         self.combo_mant = ttk.Combobox(self.frame_form, values=["No", "Sí (Preventivo)", "Sí (Correctivo)"], font=("Segoe UI", 9), width=15, state="readonly")
@@ -373,7 +421,6 @@ class InventarioBienesApp:
         self.entry_proximo = tk.Entry(self.frame_form, font=("Segoe UI", 9, "bold"), relief="solid", bd=1)
         self.entry_proximo.grid(row=2, column=5, padx=5, pady=4, sticky="ew")
         
-        # Fila 3
         lbl7 = tk.Label(self.frame_form, text="Detalle / Observación:", font=("Segoe UI", 8, "bold"))
         lbl7.grid(row=3, column=0, padx=(10, 5), pady=4, sticky="e")
         self.entry_desc_mant = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
@@ -518,11 +565,6 @@ class InventarioBienesApp:
         
         self.bienes.append(nuevo_bien)
         if self.guardar_datos_locales():
-            opciones_actuales = list(self.combo_asignado["values"])
-            if asignado_val not in opciones_actuales:
-                opciones_actuales.append(asignado_val)
-                self.combo_asignado["values"] = opciones_actuales
-            
             self.actualizar_tabla()
             self.actualizar_metricas()
             self.limpiar_formulario()
@@ -567,11 +609,6 @@ class InventarioBienesApp:
         }
         
         if self.guardar_datos_locales():
-            opciones_actuales = list(self.combo_asignado["values"])
-            if asignado_val not in opciones_actuales:
-                opciones_actuales.append(asignado_val)
-                self.combo_asignado["values"] = opciones_actuales
-                
             self.actualizar_tabla()
             self.actualizar_metricas()
             self.limpiar_formulario()
@@ -839,15 +876,6 @@ Responsable del Equipo                  Unidad de Bienes UNELLEZ
         self.entry_proximo.delete(0, tk.END)
         self.entry_proximo.insert(0, "Formato Inválido")
         return None
-
-    def obtener_opciones_asignacion(self):
-        opciones_base = ["Almacén / Stock", "Servicio Médico", "Coordinación de Sistemas", "Unidad de Bienes", "Recursos Humanos"]
-        existentes = list(opciones_base)
-        for bien in getattr(self, 'bienes', []):
-            val = bien.get("asignado_a")
-            if val and val not in existentes:
-                existentes.append(val)
-        return existentes
 
     def actualizar_tabla(self):
         for item in self.tabla.get_children():
