@@ -138,24 +138,28 @@ class InventarioBienesApp:
 
     # --- 1. CINTILLO INSTITUCIONAL Y LOGO UNELLEZ ---
     def crear_cintillo_institucional(self):
-        self.frame_cintillo = tk.Frame(self.root, bg="#002B49", height=42)
+        # Altura fija de la barra (44 px)
+        self.frame_cintillo = tk.Frame(self.root, bg="#002B49", height=44)
         self.frame_cintillo.pack(fill="x", side="top")
         
-        # Contenedor para Logo + Texto
+        # Evita que el contenido altere la altura de la barra
+        self.frame_cintillo.pack_propagate(False)
+
+        # Contenedor para Logo + Texto + Lema
         frame_logo_titulo = tk.Frame(self.frame_cintillo, bg="#002B49")
-        frame_logo_titulo.pack(side="left", padx=12, pady=4)
+        frame_logo_titulo.pack(side="left", padx=12, pady=2)
 
         # Cargar la imagen del logo
         self.logo_img = None
         if os.path.exists(ARCHIVO_LOGO):
             try:
                 if HAS_PIL:
-                    img_pil = Image.open(ARCHIVO_LOGO).resize((64, 64), Image.Resampling.LANCZOS)
+                    img_pil = Image.open(ARCHIVO_LOGO).resize((34, 34), Image.Resampling.LANCZOS)
                     self.logo_img = ImageTk.PhotoImage(img_pil)
                 else:
                     raw_img = tk.PhotoImage(file=ARCHIVO_LOGO)
-                    w_factor = max(1, raw_img.width() // 28)
-                    h_factor = max(1, raw_img.height() // 28)
+                    w_factor = max(1, raw_img.width() // 34)
+                    h_factor = max(1, raw_img.height() // 34)
                     self.logo_img = raw_img.subsample(w_factor, h_factor)
             except Exception:
                 self.logo_img = None
@@ -174,6 +178,57 @@ class InventarioBienesApp:
         )
         lbl_unellez.pack(side="left")
 
+        # Separador "|"
+        lbl_separador = tk.Label(
+            frame_logo_titulo,
+            text="|",
+            font=("Segoe UI", 12, "bold"),
+            fg="#475569",
+            bg="#002B49"
+        )
+        lbl_separador.pack(side="left", padx=(10, 10))
+
+        # --- Cargar y procesar el nuevo lema en 1 sola línea ---
+        path_lema = "lema_unellez_oro.png"
+        if os.path.exists(path_lema):
+            try:
+                img_lema_pil = Image.open(path_lema).convert("RGBA")
+
+                # 1. Hacer transparente el fondo blanco automáticamente
+                datas = img_lema_pil.getdata()
+                new_data = []
+                for item in datas:
+                    # Detecta píxeles blancos/claros y les asigna transparencia
+                    if item[0] > 230 and item[1] > 230 and item[2] > 230:
+                        new_data.append((255, 255, 255, 0))
+                    else:
+                        new_data.append(item)
+                img_lema_pil.putdata(new_data)
+
+                # 2. Recortar los bordes vacíos para aprovechar el espacio exacto del texto
+                bbox = img_lema_pil.getbbox()
+                if bbox:
+                    img_lema_pil = img_lema_pil.crop(bbox)
+
+                # 3. Escalar con altura fija (22 px) manteniendo la proporción (Aspect Ratio)
+                target_height = 22
+                aspect_ratio = img_lema_pil.width / img_lema_pil.height
+                target_width = int(target_height * aspect_ratio)
+
+                img_lema_pil = img_lema_pil.resize((target_width, target_height), Image.Resampling.LANCZOS)
+
+                # 4. Mostrar en el Label
+                self.img_lema_oro = ImageTk.PhotoImage(img_lema_pil)
+                lbl_lema = tk.Label(
+                    frame_logo_titulo, 
+                    image=self.img_lema_oro, 
+                    bg="#002B49", 
+                    bd=0
+                )
+                lbl_lema.pack(side="left")
+            except Exception as e:
+                print(f"Error procesando lema: {e}")
+
         # Botón para activar/desactivar Cuidado de Vista / Modo Oscuro
         self.btn_modo_oscuro = tk.Button(
             self.frame_cintillo,
@@ -184,14 +239,7 @@ class InventarioBienesApp:
             bd=0, padx=8, pady=2, cursor="hand2",
             command=self.toggle_modo_oscuro_animado
         )
-        self.btn_modo_oscuro.pack(side="right", padx=(5, 12))
-
-        self.lbl_estado_local = tk.Label(
-            self.frame_cintillo, 
-            text="● Modo Local (bienes.json)", 
-            font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#002B49"
-        )
-        self.lbl_estado_local.pack(side="right", padx=5)
+        self.btn_modo_oscuro.pack(side="right", padx=12, pady=8)
 
     # --- ANIMACIÓN Y CAMBIO DE TEMA ---
     def toggle_modo_oscuro_animado(self):
@@ -467,7 +515,7 @@ class InventarioBienesApp:
         btn_respaldo = tk.Button(self.frame_acciones, text="☁️ Respaldo en Nube (Próximamente)", bg="#0284C7", fg="white", font=("Segoe UI", 8, "bold"), command=self.respaldar_en_nube_placeholder, bd=0, padx=12, pady=5, cursor="hand2")
         btn_respaldo.pack(side="left")
         
-        self.lbl_info_pie = tk.Label(self.frame_acciones, text="SIGAR V1.0 (Modo Local) — UNELLEZ", font=("Segoe UI", 8, "bold"))
+        self.lbl_info_pie = tk.Label(self.frame_acciones, text="SIGAR V2.5 — UNELLEZ", font=("Segoe UI", 8, "bold"))
         self.lbl_info_pie.pack(side="right", pady=3)
 
     # --- MANEJO DE PERSISTENCIA LOCAL (JSON) ---
@@ -730,7 +778,7 @@ class InventarioBienesApp:
             c.drawCentredString(155, y_firma - 15, "Responsable del Bien / Unidad")
             c.drawCentredString(415, y_firma - 15, "Autorizado por (Unidad de Bienes UNELLEZ)")
             
-            c.drawCentredString(width / 2, 40, "Documento oficial generado automáticamente por SIGAR V1.0")
+            c.drawCentredString(width / 2, 40, "Documento oficial generado automáticamente por SIGAR V2.5")
             c.save()
             return archivo_pdf
         else:
