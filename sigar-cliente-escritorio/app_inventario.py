@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -# -*- coding: utf-8 -*-
 import os
 import json
 import calendar
@@ -24,25 +24,81 @@ except ImportError:
 # --- CONFIGURACIÓN DE ALMACENAMIENTO LOCAL Y RESPALDO ---
 ARCHIVO_BIENES = "bienes.json"
 ARCHIVO_BAJAS = "bienes_bajas.json"
-URL_RESPALDO_CLOUD = "https://sigar-unellez.onrender.com/api/respaldo"  # Reservado para integración futura
+URL_RESPALDO_CLOUD = "https://sigar-unellez.onrender.com/api/respaldo"
 
 class InventarioBienesApp:
     def __init__(self, root):
         self.root = root
         self.root.title("SIGAR (UNELLEZ) - Sistema de Inventario Local y Gestión de Activos")
-        self.root.geometry("1120x720")
+        self.root.geometry("1120x740")
         self.root.minsize(1000, 650)
-        self.root.configure(bg="#f4f6f9")
+        
+        # Estado del tema
+        self.modo_oscuro = False
+
+        # Paleta de Colores Pasteles y Oscuros
+        self.PALETA = {
+            "claro": {
+                "bg_root": "#f8fafc",
+                "bg_cintillo": "#002B49",
+                "fg_cintillo": "#ffffff",
+                "bg_panel": "#ffffff",
+                "border_panel": "#cbd5e1",
+                "fg_texto": "#0f172a",
+                "fg_subtexto": "#475569",
+                "entry_bg": "#ffffff",
+                "entry_fg": "#0f172a",
+                "entry_border": "#94a3b8",
+                "tree_bg": "#ffffff",
+                "tree_fg": "#0f172a",
+                "tree_head_bg": "#002B49",
+                "tree_head_fg": "#ffffff",
+                "kpis": [
+                    {"bg": "#f1f5f9", "border": "#475569", "text": "#334155", "val": "#0f172a", "sub": "#64748b"}, # Total (Slate Pastel)
+                    {"bg": "#ecfdf5", "border": "#10b981", "text": "#047857", "val": "#064e3b", "sub": "#059669"}, # Operativos (Menta/Esmeralda Pastel)
+                    {"bg": "#f0f9ff", "border": "#0284c7", "text": "#0369a1", "val": "#0c4a6e", "sub": "#0284c7"}, # Preventivos (Azul Cielo Pastel)
+                    {"bg": "#fffbeb", "border": "#f59e0b", "text": "#b45309", "val": "#78350f", "sub": "#d97706"}, # Correctivos (Ámbar Pastel)
+                    {"bg": "#fff1f2", "border": "#f43f5e", "text": "#be123c", "val": "#881337", "sub": "#e11d48"}  # Desincorporados (Rosa Pastel)
+                ]
+            },
+            "oscuro": {
+                "bg_root": "#0f172a",
+                "bg_cintillo": "#020617",
+                "fg_cintillo": "#f8fafc",
+                "bg_panel": "#1e293b",
+                "border_panel": "#334155",
+                "fg_texto": "#f8fafc",
+                "fg_subtexto": "#cbd5e1",
+                "entry_bg": "#334155",
+                "entry_fg": "#ffffff",
+                "entry_border": "#64748b",
+                "tree_bg": "#1e293b",
+                "tree_fg": "#f8fafc",
+                "tree_head_bg": "#020617",
+                "tree_head_fg": "#38bdf8",
+                "kpis": [
+                    {"bg": "#1e293b", "border": "#64748b", "text": "#cbd5e1", "val": "#f8fafc", "sub": "#94a3b8"}, # Total
+                    {"bg": "#064e3b", "border": "#34d399", "text": "#a7f3d0", "val": "#ffffff", "sub": "#6ee7b7"}, # Operativos
+                    {"bg": "#0c4a6e", "border": "#38bdf8", "text": "#bae6fd", "val": "#ffffff", "sub": "#7dd3fc"}, # Preventivos
+                    {"bg": "#78350f", "border": "#fbbf24", "text": "#fde68a", "val": "#ffffff", "sub": "#fcd34d"}, # Correctivos
+                    {"bg": "#881337", "border": "#fb7185", "text": "#fecdd3", "val": "#ffffff", "sub": "#fda4af"}  # Desinc
+                ]
+            }
+        }
+        
+        self.root.configure(bg=self.PALETA["claro"]["bg_root"])
         
         # Estilos globales de Tkinter
         self.style = ttk.Style()
         self.style.theme_use("clam")
-        self.style.configure("Treeview.Heading", font=("Segoe UI", 9, "bold"), background="#002B49", foreground="white")
-        self.style.configure("Treeview", font=("Segoe UI", 9), rowheight=26)
-        self.style.configure("TButton", font=("Segoe UI", 9, "bold"), padding=5)
         
         # Lista local en memoria
         self.bienes = []
+
+        # Listas para actualizar dinamismo de tema
+        self.tarjetas_widgets = []
+        self.labels_texto = []
+        self.entries_widgets = []
 
         # Construcción de componentes gráficos
         self.crear_cintillo_institucional()
@@ -52,6 +108,9 @@ class InventarioBienesApp:
         self.crear_tabla()
         self.crear_panel_acciones()
         
+        # Aplicar estilo inicial
+        self.aplicar_tema_widgets()
+
         # Cargar datos locales e inicializar
         self.bienes = self.cargar_datos_locales()
         
@@ -69,57 +128,153 @@ class InventarioBienesApp:
         self.root.focus_force()
         self.entry_id.focus_force()
 
-    # --- 1. CINTILLO INSTITUCIONAL ---
+    # --- 1. CINTILLO INSTITUCIONAL Y BOTÓN MODO OSCURO ---
     def crear_cintillo_institucional(self):
-        frame_cintillo = tk.Frame(self.root, bg="#002B49", height=36)
-        frame_cintillo.pack(fill="x", side="top")
+        self.frame_cintillo = tk.Frame(self.root, bg="#002B49", height=38)
+        self.frame_cintillo.pack(fill="x", side="top")
         
         lbl_unellez = tk.Label(
-            frame_cintillo, 
+            self.frame_cintillo, 
             text="  UNELLEZ  |  Universidad Nacional Experimental de los Llanos Occidentales 'Ezequiel Zamora'",
             font=("Segoe UI", 9, "bold"), fg="#ffffff", bg="#002B49"
         )
         lbl_unellez.pack(side="left", padx=10, pady=6)
 
+        # Botón para activar/desactivar Cuidado de Vista / Modo Oscuro
+        self.btn_modo_oscuro = tk.Button(
+            self.frame_cintillo,
+            text="🌙 Cuidado de Vista",
+            font=("Segoe UI", 8, "bold"),
+            bg="#1e293b", fg="#f8fafc",
+            activebackground="#334155", activeforeground="#ffffff",
+            bd=0, padx=8, pady=2, cursor="hand2",
+            command=self.toggle_modo_oscuro_animado
+        )
+        self.btn_modo_oscuro.pack(side="right", padx=(5, 12))
+
         self.lbl_estado_local = tk.Label(
-            frame_cintillo, 
-            text="● Modo Local (bienes.json)  ", 
+            self.frame_cintillo, 
+            text="● Modo Local (bienes.json)", 
             font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#002B49"
         )
-        self.lbl_estado_local.pack(side="right", padx=10)
+        self.lbl_estado_local.pack(side="right", padx=5)
 
-    # --- 2. TARJETAS DE MÉTRICAS (KPIs) ---
+    # --- ANIMACIÓN Y CAMBIO DE TEMA ---
+    def toggle_modo_oscuro_animado(self):
+        self.modo_oscuro = not self.modo_oscuro
+        
+        # Colores de origen y destino para la animación de fondo
+        color_inicio = self.PALETA["oscuro" if not self.modo_oscuro else "claro"]["bg_root"]
+        color_fin = self.PALETA["oscuro" if self.modo_oscuro else "claro"]["bg_root"]
+        
+        rgb_inicio = self.hex_a_rgb(color_inicio)
+        rgb_fin = self.hex_a_rgb(color_fin)
+        
+        # Iniciar animación de transición suave
+        self.animar_transicion_bg(rgb_inicio, rgb_fin, paso=0, total_pasos=12)
+
+    def hex_a_rgb(self, hex_str):
+        hex_str = hex_str.lstrip('#')
+        return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
+
+    def rgb_a_hex(self, rgb):
+        return '#{:02x}{:02x}{:02x}'.format(*rgb)
+
+    def animar_transicion_bg(self, rgb_inicio, rgb_fin, paso, total_pasos):
+        if paso <= total_pasos:
+            factor = paso / total_pasos
+            r = int(rgb_inicio[0] + (rgb_fin[0] - rgb_inicio[0]) * factor)
+            g = int(rgb_inicio[1] + (rgb_fin[1] - rgb_inicio[1]) * factor)
+            b = int(rgb_inicio[2] + (rgb_fin[2] - rgb_inicio[2]) * factor)
+            color_interp = self.rgb_a_hex((r, g, b))
+            
+            self.root.configure(bg=color_interp)
+            self.frame_kpis.configure(bg=color_interp)
+            self.frame_busqueda.configure(bg=color_interp)
+            self.frame_tabla.configure(bg=color_interp)
+            self.frame_acciones.configure(bg=color_interp)
+            
+            self.root.after(18, lambda: self.animar_transicion_bg(rgb_inicio, rgb_fin, paso + 1, total_pasos))
+        else:
+            self.aplicar_tema_widgets()
+
+    def aplicar_tema_widgets(self):
+        t = "oscuro" if self.modo_oscuro else "claro"
+        pal = self.PALETA[t]
+
+        # Actualizar botón de tema
+        if self.modo_oscuro:
+            self.btn_modo_oscuro.config(text="☀️ Modo Claro", bg="#f59e0b", fg="#0f172a", activebackground="#fbbf24")
+        else:
+            self.btn_modo_oscuro.config(text="🌙 Cuidado de Vista", bg="#1e293b", fg="#f8fafc", activebackground="#334155")
+
+        # Formularios y Labels Generales
+        self.frame_form.config(bg=pal["bg_panel"], fg=pal["fg_texto"], highlightbackground=pal["border_panel"])
+        for lbl in self.labels_texto:
+            lbl.config(bg=pal["bg_panel"], fg=pal["fg_texto"])
+            
+        for f in self.frames_form_internos:
+            f.config(bg=pal["bg_panel"])
+
+        for entry in self.entries_widgets:
+            entry.config(bg=pal["entry_bg"], fg=pal["entry_fg"], insertbackground=pal["entry_fg"], highlightbackground=pal["entry_border"])
+
+        self.entry_proximo.config(bg=pal["bg_root"], fg=pal["fg_texto"])
+        self.lbl_info_pie.config(bg=pal["bg_root"], fg=pal["fg_subtexto"])
+        self.lbl_indicador_busqueda.config(bg=pal["bg_root"], fg=pal["fg_subtexto"])
+        self.lbl_icon_buscar.config(bg=pal["bg_root"], fg=pal["fg_texto"])
+
+        # Actualizar Tarjetas KPIs (Colores Pasteles en Modo Claro)
+        for i, card_info in enumerate(self.tarjetas_widgets):
+            cfg = pal["kpis"][i]
+            card_info["card"].config(bg=cfg["bg"], highlightbackground=cfg["border"])
+            card_info["strip"].config(bg=cfg["border"])
+            card_info["content"].config(bg=cfg["bg"])
+            card_info["tit"].config(bg=cfg["bg"], fg=cfg["text"])
+            card_info["val"].config(bg=cfg["bg"], fg=cfg["val"])
+            card_info["sub"].config(bg=cfg["bg"], fg=cfg["sub"])
+
+        # Estilo del Treeview
+        self.style.configure("Treeview", background=pal["tree_bg"], foreground=pal["tree_fg"], fieldbackground=pal["tree_bg"])
+        self.style.configure("Treeview.Heading", background=pal["tree_head_bg"], foreground=pal["tree_head_fg"])
+
+    # --- 2. TARJETAS DE MÉTRICAS (KPIs) PASTEL ---
     def crear_panel_metricas(self):
-        frame_kpis = tk.Frame(self.root, bg="#f4f6f9")
-        frame_kpis.pack(fill="x", padx=15, pady=(10, 5))
+        self.frame_kpis = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
+        self.frame_kpis.pack(fill="x", padx=15, pady=(10, 5))
 
         for i in range(5):
-            frame_kpis.columnconfigure(i, weight=1, uniform="kpi")
+            self.frame_kpis.columnconfigure(i, weight=1, uniform="kpi")
 
-        self.lbl_val_total = self.crear_tarjeta(frame_kpis, 0, "TOTAL ACTIVOS", "0", "Bienes registrados", "#002B49", "#ffffff", "#002B49")
-        self.lbl_val_operativos = self.crear_tarjeta(frame_kpis, 1, "OPERATIVOS", "0", "En servicio activo", "#059669", "#ffffff", "#059669")
-        self.lbl_val_preventivos = self.crear_tarjeta(frame_kpis, 2, "PREVENTIVOS", "0", "Ciclo regular (+3M)", "#0284C7", "#ffffff", "#0284C7")
-        self.lbl_val_correctivos = self.crear_tarjeta(frame_kpis, 3, "CORRECTIVOS", "0", "Ajuste / Reparación", "#D97706", "#ffffff", "#D97706")
-        self.lbl_val_desincorporados = self.crear_tarjeta(frame_kpis, 4, "DESINCORPORADOS", "0", "Actas emitidas", "#DC2626", "#ffffff", "#DC2626")
+        self.lbl_val_total = self.crear_tarjeta(0, "TOTAL ACTIVOS", "0", "Bienes registrados")
+        self.lbl_val_operativos = self.crear_tarjeta(1, "OPERATIVOS", "0", "En servicio activo")
+        self.lbl_val_preventivos = self.crear_tarjeta(2, "PREVENTIVOS", "0", "Ciclo regular (+3M)")
+        self.lbl_val_correctivos = self.crear_tarjeta(3, "CORRECTIVOS", "0", "Ajuste / Reparación")
+        self.lbl_val_desincorporados = self.crear_tarjeta(4, "DESINCORPORADOS", "0", "Actas emitidas")
 
-    def crear_tarjeta(self, parent, col, titulo, valor_inic, subtitulo, color_borde, color_bg, color_texto):
-        card = tk.Frame(parent, bg=color_bg, highlightbackground=color_borde, highlightthickness=1, bd=0)
+    def crear_tarjeta(self, col, titulo, valor_inic, subtitulo):
+        card = tk.Frame(self.frame_kpis, highlightthickness=1, bd=0)
         card.grid(row=0, column=col, sticky="nsew", padx=3)
 
-        left_strip = tk.Frame(card, bg=color_borde, width=4)
+        left_strip = tk.Frame(card, width=5)
         left_strip.pack(side="left", fill="y")
 
-        content = tk.Frame(card, bg=color_bg, padx=8, pady=4)
+        content = tk.Frame(card, padx=10, pady=6)
         content.pack(side="left", fill="both", expand=True)
 
-        lbl_tit = tk.Label(content, text=titulo, font=("Segoe UI", 7, "bold"), fg=color_texto, bg=color_bg)
+        lbl_tit = tk.Label(content, text=titulo, font=("Segoe UI", 8, "bold"))
         lbl_tit.pack(anchor="w")
 
-        lbl_val = tk.Label(content, text=valor_inic, font=("Segoe UI", 14, "bold"), fg="#1f2937", bg=color_bg)
+        lbl_val = tk.Label(content, text=valor_inic, font=("Segoe UI", 16, "bold"))
         lbl_val.pack(anchor="w")
 
-        lbl_sub = tk.Label(content, text=subtitulo, font=("Segoe UI", 7), fg="#6b7280", bg=color_bg)
+        lbl_sub = tk.Label(content, text=subtitulo, font=("Segoe UI", 8, "bold"))
         lbl_sub.pack(anchor="w")
+
+        self.tarjetas_widgets.append({
+            "card": card, "strip": left_strip, "content": content,
+            "tit": lbl_tit, "val": lbl_val, "sub": lbl_sub
+        })
 
         return lbl_val
 
@@ -129,7 +284,6 @@ class InventarioBienesApp:
         preventivos = 0
         correctivos = 0
         
-        # Contar desincorporados registrados en el archivo de bajas
         desincorporados = 0
         if os.path.exists(ARCHIVO_BAJAS):
             try:
@@ -156,26 +310,34 @@ class InventarioBienesApp:
 
     # --- 3. FORMULARIO DE REGISTRO / EDICIÓN ---
     def crear_formulario(self):
-        frame_form = tk.LabelFrame(self.root, text=" Registrar Activo y Gestión de Mantenimiento ", font=("Segoe UI", 9, "bold"), bg="#ffffff", fg="#002B49", bd=1, relief="solid")
-        frame_form.pack(fill="x", padx=15, pady=5)
+        self.frame_form = tk.LabelFrame(
+            self.root, text=" Registrar Activo y Gestión de Mantenimiento ",
+            font=("Segoe UI", 9, "bold"), bd=1, relief="solid"
+        )
+        self.frame_form.pack(fill="x", padx=15, pady=5)
         
-        frame_form.columnconfigure(1, weight=1)
-        frame_form.columnconfigure(3, weight=2)
-        frame_form.columnconfigure(5, weight=1)
+        self.frame_form.columnconfigure(1, weight=1)
+        self.frame_form.columnconfigure(3, weight=2)
+        self.frame_form.columnconfigure(5, weight=1)
+        
+        self.frames_form_internos = []
         
         # Fila 0
-        tk.Label(frame_form, text="ID único:", bg="#ffffff", font=("Segoe UI", 8, "bold")).grid(row=0, column=0, padx=(10, 5), pady=4, sticky="e")
-        self.entry_id = tk.Entry(frame_form, bg="#ffffff", fg="#000000", font=("Segoe UI", 9), relief="solid", bd=1)
+        lbl1 = tk.Label(self.frame_form, text="ID único:", font=("Segoe UI", 8, "bold"))
+        lbl1.grid(row=0, column=0, padx=(10, 5), pady=4, sticky="e")
+        self.entry_id = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
         self.entry_id.grid(row=0, column=1, padx=5, pady=4, sticky="ew")
         
-        tk.Label(frame_form, text="Asignado a:", bg="#ffffff", font=("Segoe UI", 8, "bold")).grid(row=0, column=2, padx=(10, 5), pady=4, sticky="e")
-        self.combo_asignado = ttk.Combobox(frame_form, font=("Segoe UI", 9))
+        lbl2 = tk.Label(self.frame_form, text="Asignado a:", font=("Segoe UI", 8, "bold"))
+        lbl2.grid(row=0, column=2, padx=(10, 5), pady=4, sticky="e")
+        self.combo_asignado = ttk.Combobox(self.frame_form, font=("Segoe UI", 9))
         self.combo_asignado.grid(row=0, column=3, columnspan=3, padx=5, pady=4, sticky="ew")
             
         # Botones de Formulario
-        frame_btn_form = tk.Frame(frame_form, bg="#ffffff")
+        frame_btn_form = tk.Frame(self.frame_form)
         frame_btn_form.grid(row=0, column=6, rowspan=4, padx=10, pady=4, sticky="ns")
-        
+        self.frames_form_internos.append(frame_btn_form)
+
         btn_agregar = tk.Button(frame_btn_form, text="Registrar Nuevo", bg="#0284C7", fg="white", font=("Segoe UI", 8, "bold"), command=self.agregar_bien, bd=0, padx=10, pady=4, cursor="hand2")
         btn_agregar.pack(fill="x", pady=2)
         
@@ -186,54 +348,66 @@ class InventarioBienesApp:
         btn_limpiar.pack(fill="x", pady=2)
         
         # Fila 1
-        tk.Label(frame_form, text="Descripción / Nombre:", bg="#ffffff", font=("Segoe UI", 8, "bold")).grid(row=1, column=0, padx=(10, 5), pady=4, sticky="e")
-        self.entry_nombre = tk.Entry(frame_form, bg="#ffffff", fg="#000000", font=("Segoe UI", 9), relief="solid", bd=1)
+        lbl3 = tk.Label(self.frame_form, text="Descripción / Nombre:", font=("Segoe UI", 8, "bold"))
+        lbl3.grid(row=1, column=0, padx=(10, 5), pady=4, sticky="e")
+        self.entry_nombre = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
         self.entry_nombre.grid(row=1, column=1, columnspan=5, padx=5, pady=4, sticky="ew")
         
         # Fila 2
-        tk.Label(frame_form, text="¿Mantenimiento?:", bg="#ffffff", font=("Segoe UI", 8, "bold")).grid(row=2, column=0, padx=(10, 5), pady=4, sticky="e")
-        self.combo_mant = ttk.Combobox(frame_form, values=["No", "Sí (Preventivo)", "Sí (Correctivo)"], font=("Segoe UI", 9), width=15, state="readonly")
+        lbl4 = tk.Label(self.frame_form, text="¿Mantenimiento?:", font=("Segoe UI", 8, "bold"))
+        lbl4.grid(row=2, column=0, padx=(10, 5), pady=4, sticky="e")
+        self.combo_mant = ttk.Combobox(self.frame_form, values=["No", "Sí (Preventivo)", "Sí (Correctivo)"], font=("Segoe UI", 9), width=15, state="readonly")
         self.combo_mant.current(0)
         self.combo_mant.grid(row=2, column=1, padx=5, pady=4, sticky="w")
         
-        tk.Label(frame_form, text="Fecha (DD/MM/AAAA):", bg="#ffffff", font=("Segoe UI", 8, "bold")).grid(row=2, column=2, padx=(10, 5), pady=4, sticky="e")
+        lbl5 = tk.Label(self.frame_form, text="Fecha (DD/MM/AAAA):", font=("Segoe UI", 8, "bold"))
+        lbl5.grid(row=2, column=2, padx=(10, 5), pady=4, sticky="e")
         fecha_hoy = date.today().strftime("%d/%m/%Y")
-        self.entry_fecha_mant = tk.Entry(frame_form, bg="#ffffff", fg="#000000", font=("Segoe UI", 9), relief="solid", bd=1)
+        self.entry_fecha_mant = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
         self.entry_fecha_mant.insert(0, fecha_hoy)
         self.entry_fecha_mant.grid(row=2, column=3, padx=5, pady=4, sticky="ew")
         self.entry_fecha_mant.bind("<KeyRelease>", self.al_cambiar_fecha)
         
-        tk.Label(frame_form, text="Próximo (Hábil +3M):", bg="#ffffff", font=("Segoe UI", 8, "bold")).grid(row=2, column=4, padx=(10, 5), pady=4, sticky="e")
-        self.entry_proximo = tk.Entry(frame_form, bg="#f3f4f6", fg="#000000", font=("Segoe UI", 9, "bold"), relief="solid", bd=1)
+        lbl6 = tk.Label(self.frame_form, text="Próximo (Hábil +3M):", font=("Segoe UI", 8, "bold"))
+        lbl6.grid(row=2, column=4, padx=(10, 5), pady=4, sticky="e")
+        self.entry_proximo = tk.Entry(self.frame_form, font=("Segoe UI", 9, "bold"), relief="solid", bd=1)
         self.entry_proximo.grid(row=2, column=5, padx=5, pady=4, sticky="ew")
         
         # Fila 3
-        tk.Label(frame_form, text="Detalle / Observación:", bg="#ffffff", font=("Segoe UI", 8, "bold")).grid(row=3, column=0, padx=(10, 5), pady=4, sticky="e")
-        self.entry_desc_mant = tk.Entry(frame_form, bg="#ffffff", fg="#000000", font=("Segoe UI", 9), relief="solid", bd=1)
+        lbl7 = tk.Label(self.frame_form, text="Detalle / Observación:", font=("Segoe UI", 8, "bold"))
+        lbl7.grid(row=3, column=0, padx=(10, 5), pady=4, sticky="e")
+        self.entry_desc_mant = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
         self.entry_desc_mant.grid(row=3, column=1, columnspan=5, padx=5, pady=4, sticky="ew")
+
+        self.labels_texto.extend([lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7])
+        self.entries_widgets.extend([self.entry_id, self.entry_nombre, self.entry_fecha_mant, self.entry_desc_mant])
 
     # --- 4. PANEL DE BÚSQUEDA Y FILTRADO ---
     def crear_panel_busqueda(self):
-        frame_busqueda = tk.Frame(self.root, bg="#f4f6f9")
-        frame_busqueda.pack(fill="x", padx=15, pady=(4, 2))
+        self.frame_busqueda = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
+        self.frame_busqueda.pack(fill="x", padx=15, pady=(4, 2))
         
-        tk.Label(frame_busqueda, text="🔍 Buscar Activo:", bg="#f4f6f9", font=("Segoe UI", 8, "bold"), fg="#002B49").pack(side="left", padx=(0, 5))
-        self.entry_buscar = tk.Entry(frame_busqueda, bg="#ffffff", fg="#000000", font=("Segoe UI", 9), relief="solid", bd=1, width=35)
+        self.lbl_icon_buscar = tk.Label(self.frame_busqueda, text="🔍 Buscar Activo:", font=("Segoe UI", 8, "bold"))
+        self.lbl_icon_buscar.pack(side="left", padx=(0, 5))
+        
+        self.entry_buscar = tk.Entry(self.frame_busqueda, font=("Segoe UI", 9), relief="solid", bd=1, width=35)
         self.entry_buscar.pack(side="left", padx=5)
         self.entry_buscar.bind("<KeyRelease>", self.filtrar_tabla)
+        self.entries_widgets.append(self.entry_buscar)
         
-        btn_limpiar_filtro = tk.Button(frame_busqueda, text="Limpiar Filtro", bg="#002B49", fg="white", font=("Segoe UI", 8, "bold"), command=self.limpiar_filtro_busqueda, bd=0, padx=8, pady=2, cursor="hand2")
+        btn_limpiar_filtro = tk.Button(self.frame_busqueda, text="Limpiar Filtro", bg="#002B49", fg="white", font=("Segoe UI", 8, "bold"), command=self.limpiar_filtro_busqueda, bd=0, padx=8, pady=2, cursor="hand2")
         btn_limpiar_filtro.pack(side="left", padx=5)
         
-        tk.Label(frame_busqueda, text="(Doble clic en un registro para editar)", bg="#f4f6f9", font=("Segoe UI", 8, "italic"), fg="#6b7280").pack(side="right")
+        self.lbl_indicador_busqueda = tk.Label(self.frame_busqueda, text="(Doble clic en un registro para editar)", font=("Segoe UI", 8, "bold"))
+        self.lbl_indicador_busqueda.pack(side="right")
 
     # --- 5. TABLA DE VISUALIZACIÓN ---
     def crear_tabla(self):
-        frame_tabla = tk.Frame(self.root, bg="#f4f6f9")
-        frame_tabla.pack(fill="both", expand=True, padx=15, pady=4)
+        self.frame_tabla = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
+        self.frame_tabla.pack(fill="both", expand=True, padx=15, pady=4)
         
         columnas = ("id", "nombre", "asignado_a", "mantenimiento", "fecha_mant", "proximo_mant")
-        self.tabla = ttk.Treeview(frame_tabla, columns=columnas, show="headings")
+        self.tabla = ttk.Treeview(self.frame_tabla, columns=columnas, show="headings")
         self.tabla.heading("id", text="ID Activo")
         self.tabla.heading("nombre", text="Descripción / Detalles del Bien")
         self.tabla.heading("asignado_a", text="Asignado a")
@@ -250,7 +424,7 @@ class InventarioBienesApp:
         
         self.tabla.bind("<Double-1>", self.cargar_seleccion_para_editar)
         
-        scrollbar = ttk.Scrollbar(frame_tabla, orient="vertical", command=self.tabla.yview)
+        scrollbar = ttk.Scrollbar(self.frame_tabla, orient="vertical", command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=scrollbar.set)
         
         self.tabla.pack(side="left", fill="both", expand=True)
@@ -258,25 +432,23 @@ class InventarioBienesApp:
 
     # --- 6. BARRA DE ACCIONES INFERIOR ---
     def crear_panel_acciones(self):
-        frame_acciones = tk.Frame(self.root, bg="#f4f6f9")
-        frame_acciones.pack(fill="x", padx=15, pady=(4, 10))
+        self.frame_acciones = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
+        self.frame_acciones.pack(fill="x", padx=15, pady=(4, 10))
         
-        btn_cargar = tk.Button(frame_acciones, text="Cargar Seleccionado para Editar", bg="#D97706", fg="white", font=("Segoe UI", 8, "bold"), command=self.cargar_seleccion_para_editar, bd=0, padx=12, pady=5, cursor="hand2")
+        btn_cargar = tk.Button(self.frame_acciones, text="Cargar Seleccionado para Editar", bg="#D97706", fg="white", font=("Segoe UI", 8, "bold"), command=self.cargar_seleccion_para_editar, bd=0, padx=12, pady=5, cursor="hand2")
         btn_cargar.pack(side="left", padx=(0, 10))
         
-        btn_eliminar = tk.Button(frame_acciones, text="Dar de Baja / Generar Acta PDF", bg="#DC2626", fg="white", font=("Segoe UI", 8, "bold"), command=self.dar_de_baja_bien, bd=0, padx=12, pady=5, cursor="hand2")
+        btn_eliminar = tk.Button(self.frame_acciones, text="Dar de Baja / Generar Acta PDF", bg="#DC2626", fg="white", font=("Segoe UI", 8, "bold"), command=self.dar_de_baja_bien, bd=0, padx=12, pady=5, cursor="hand2")
         btn_eliminar.pack(side="left", padx=(0, 10))
 
-        # Botón para futura función de respaldo en la nube
-        btn_respaldo = tk.Button(frame_acciones, text="☁️ Respaldo en Nube (Próximamente)", bg="#0284C7", fg="white", font=("Segoe UI", 8, "bold"), command=self.respaldar_en_nube_placeholder, bd=0, padx=12, pady=5, cursor="hand2")
+        btn_respaldo = tk.Button(self.frame_acciones, text="☁️ Respaldo en Nube (Próximamente)", bg="#0284C7", fg="white", font=("Segoe UI", 8, "bold"), command=self.respaldar_en_nube_placeholder, bd=0, padx=12, pady=5, cursor="hand2")
         btn_respaldo.pack(side="left")
         
-        lbl_info = tk.Label(frame_acciones, text="SIGAR V1.0 (Modo Local) — UNELLEZ", font=("Segoe UI", 8, "italic"), fg="#6b7280", bg="#f4f6f9")
-        lbl_info.pack(side="right", pady=3)
+        self.lbl_info_pie = tk.Label(self.frame_acciones, text="SIGAR V1.0 (Modo Local) — UNELLEZ", font=("Segoe UI", 8, "bold"))
+        self.lbl_info_pie.pack(side="right", pady=3)
 
     # --- MANEJO DE PERSISTENCIA LOCAL (JSON) ---
     def cargar_datos_locales(self):
-        """Carga la lista de activos desde bienes.json localmente."""
         if not os.path.exists(ARCHIVO_BIENES):
             return []
         try:
@@ -287,7 +459,6 @@ class InventarioBienesApp:
             return []
 
     def guardar_datos_locales(self):
-        """Guarda la lista actual de activos en bienes.json."""
         try:
             with open(ARCHIVO_BIENES, "w", encoding="utf-8") as f:
                 json.dump(self.bienes, f, ensure_ascii=False, indent=4)
@@ -297,7 +468,6 @@ class InventarioBienesApp:
             return False
 
     def guardar_baja_local(self, registro_baja):
-        """Guarda un historial acumulativo de las bajas en bienes_bajas.json."""
         bajas = []
         if os.path.exists(ARCHIVO_BAJAS):
             try:
@@ -332,7 +502,6 @@ class InventarioBienesApp:
             messagebox.showwarning("Tipo Incorrecto", "El ID debe ser un número entero.")
             return
 
-        # Verificar si el ID ya existe en el archivo local
         if any(b["id"] == id_int for b in self.bienes):
             messagebox.showwarning("ID Duplicado", f"El activo con ID {id_int} ya existe en el sistema.")
             return
@@ -452,7 +621,6 @@ class InventarioBienesApp:
                 "fecha_baja": fecha_hora_baja
             }
             
-            # Remover de activos vigentes y registrar en bajas
             self.bienes = [b for b in self.bienes if b["id"] != id_bien]
             self.guardar_datos_locales()
             self.guardar_baja_local(registro_baja)
@@ -468,9 +636,7 @@ class InventarioBienesApp:
                 f"El activo ID {id_bien} ha sido desincorporado.\n\n📄 Documento generado: {archivo_generado}"
             )
 
-    # --- APARTADO RESERVADO PARA FUTURA SINCRONIZACIÓN EN LA NUBE ---
     def respaldar_en_nube_placeholder(self):
-        """Estructura preparada para implementar la subida/sincronización del archivo bienes.json hacia Render en el futuro."""
         if not HAS_REQUESTS:
             messagebox.showinfo(
                 "Respaldo en Nube (Próximamente)",
