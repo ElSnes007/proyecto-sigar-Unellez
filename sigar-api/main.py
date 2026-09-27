@@ -81,11 +81,29 @@ class InventarioBienesApp:
         self.entry_id.grid(row=0, column=1, padx=5, pady=5, sticky="ew")
         
         tk.Label(frame_form, text="Asignado a:", bg="#ffffff", font=("Segoe UI", 9, "bold")).grid(row=0, column=2, padx=(10, 5), pady=5, sticky="e")
-        opciones_asignacion = self.obtener_opciones_asignacion()
-        self.combo_asignado = ttk.Combobox(frame_form, values=opciones_asignacion, font=("Segoe UI", 9))
+
+        # 1. Definimos una tupla o lista fija con los datos que no van a cambiar
+        opciones_asignacion = ["Departamento de Sistemas", "Administración", "Laboratorio 1", "Rectorado"]
+        estilo_combo = ttk.Style()
+        estilo_combo.theme_use('clam')
+        estilo_combo.configure(
+            "TCombobox",
+            fieldbackground="#f9f9f9",  
+            background="#ffffff",       
+            foreground="#000000"
+        )
+        # 2. Agregamos state="readonly" para evitar que el usuario escriba o agregue elementos nuevos
+        self.combo_asignado = ttk.Combobox(
+            frame_form, 
+            values=opciones_asignacion, 
+            font=("Segoe UI", 9), 
+            state="readonly",
+            style="TCombobox"
+        )
+
         self.combo_asignado.grid(row=0, column=3, columnspan=3, padx=5, pady=5, sticky="ew")
         if opciones_asignacion:
-            self.combo_asignado.current(0)
+         self.combo_asignado.current(0)
             
         # Contenedor Lateral de Botones de Formulario
         frame_btn_form = tk.Frame(frame_form, bg="#ffffff")
