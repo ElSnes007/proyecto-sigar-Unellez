@@ -1,4 +1,4 @@
-# -*- coding: utf-8 -*-
+# -*# -*- coding: utf-8 -*-
 import os
 import json
 import calendar
@@ -121,11 +121,6 @@ class InventarioBienesApp:
 
         # Cargar datos locales e inicializar
         self.bienes = self.cargar_datos_locales()
-        
-        opciones_asignacion = self.obtener_opciones_asignacion()
-        self.combo_asignado["values"] = opciones_asignacion
-        if opciones_asignacion:
-            self.combo_asignado.current(0)
             
         self.actualizar_tabla()
         self.actualizar_metricas()
@@ -357,8 +352,37 @@ class InventarioBienesApp:
         
         lbl2 = tk.Label(self.frame_form, text="Asignado a:", font=("Segoe UI", 8, "bold"))
         lbl2.grid(row=0, column=2, padx=(10, 5), pady=4, sticky="e")
-        self.combo_asignado = ttk.Combobox(self.frame_form, font=("Segoe UI", 9))
+        
+        # Opciones fijas para la asignación
+        opciones_asignacion = ["Departamento de Sistemas", "Administración", "Laboratorio 1", "Rectorado"]
+        
+        # Estilo personalizado para el Combobox (letras negras, fondo claro)
+        estilo_combo = ttk.Style()
+        estilo_combo.theme_use('clam')
+        estilo_combo.configure(
+            "TCombobox",
+            fieldbackground="#f9f9f9",
+            background="#ffffff",
+            foreground="#000000"
+        )
+        estilo_combo.map(
+            "TCombobox",
+            fieldbackground=[("readonly", "#f9f9f9")],
+            selectbackground=[("readonly", "#e0e0e0")],
+            selectforeground=[("readonly", "#000000")]
+        )
+
+        self.combo_asignado = ttk.Combobox(
+            self.frame_form, 
+            values=opciones_asignacion, 
+            font=("Segoe UI", 9), 
+            state="readonly",
+            style="TCombobox"
+        )
         self.combo_asignado.grid(row=0, column=3, columnspan=3, padx=5, pady=4, sticky="ew")
+        
+        if opciones_asignacion:
+            self.combo_asignado.current(0)
             
         frame_btn_form = tk.Frame(self.frame_form)
         frame_btn_form.grid(row=0, column=6, rowspan=4, padx=10, pady=4, sticky="ns")
@@ -541,11 +565,6 @@ class InventarioBienesApp:
         
         self.bienes.append(nuevo_bien)
         if self.guardar_datos_locales():
-            opciones_actuales = list(self.combo_asignado["values"])
-            if asignado_val not in opciones_actuales:
-                opciones_actuales.append(asignado_val)
-                self.combo_asignado["values"] = opciones_actuales
-            
             self.actualizar_tabla()
             self.actualizar_metricas()
             self.limpiar_formulario()
@@ -590,11 +609,6 @@ class InventarioBienesApp:
         }
         
         if self.guardar_datos_locales():
-            opciones_actuales = list(self.combo_asignado["values"])
-            if asignado_val not in opciones_actuales:
-                opciones_actuales.append(asignado_val)
-                self.combo_asignado["values"] = opciones_actuales
-                
             self.actualizar_tabla()
             self.actualizar_metricas()
             self.limpiar_formulario()
@@ -862,15 +876,6 @@ Responsable del Equipo                  Unidad de Bienes UNELLEZ
         self.entry_proximo.delete(0, tk.END)
         self.entry_proximo.insert(0, "Formato Inválido")
         return None
-
-    def obtener_opciones_asignacion(self):
-        opciones_base = ["Almacén / Stock", "Servicio Médico", "Coordinación de Sistemas", "Unidad de Bienes", "Recursos Humanos"]
-        existentes = list(opciones_base)
-        for bien in getattr(self, 'bienes', []):
-            val = bien.get("asignado_a")
-            if val and val not in existentes:
-                existentes.append(val)
-        return existentes
 
     def actualizar_tabla(self):
         for item in self.tabla.get_children():
