@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
 import os
+import json
 import calendar
 from datetime import datetime, date, timedelta
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
-import requests
 
 # Intentar importar ReportLab para generación nativa de PDF
 try:
@@ -14,14 +14,22 @@ try:
 except ImportError:
     HAS_REPORTLAB = False
 
-# --- CONFIGURACIÓN DE CONEXIÓN A LA API EN RENDER (UNELLEZ) ---
-BASE_URL = "https://sigar-unellez.onrender.com"
-API_BASE_URL = f"{BASE_URL}/api"
+# Intentar importar requests para la futura integración del respaldo en la nube
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
+
+# --- CONFIGURACIÓN DE ALMACENAMIENTO LOCAL Y RESPALDO ---
+ARCHIVO_BIENES = "bienes.json"
+ARCHIVO_BAJAS = "bienes_bajas.json"
+URL_RESPALDO_CLOUD = "https://sigar-unellez.onrender.com/api/respaldo"  # Reservado para integración futura
 
 class InventarioBienesApp:
     def __init__(self, root):
         self.root = root
-        self.root.title("SIGAR (UNELLEZ) - Sistema de Inventario y Gestión de Activos y Recursos")
+        self.root.title("SIGAR (UNELLEZ) - Sistema de Inventario Local y Gestión de Activos")
         self.root.geometry("1120x720")
         self.root.minsize(1000, 650)
         self.root.configure(bg="#f4f6f9")
@@ -44,8 +52,8 @@ class InventarioBienesApp:
         self.crear_tabla()
         self.crear_panel_acciones()
         
-        # Cargar datos e inicializar
-        self.bienes = self.cargar_datos()
+        # Cargar datos locales e inicializar
+        self.bienes = self.cargar_datos_locales()
         
         opciones_asignacion = self.obtener_opciones_asignacion()
         self.combo_asignado["values"] = opciones_asignacion
@@ -73,12 +81,12 @@ class InventarioBienesApp:
         )
         lbl_unellez.pack(side="left", padx=10, pady=6)
 
-        self.lbl_estado_cloud = tk.Label(
+        self.lbl_estado_local = tk.Label(
             frame_cintillo, 
-            text="● Conectado a Render Cloud  ", 
-            font=("Segoe UI", 8, "bold"), fg="#A3E635", bg="#002B49"
+            text="● Modo Local (bienes.json)  ", 
+            font=("Segoe UI", 8, "bold"), fg="#38BDF8", bg="#002B49"
         )
-        self.lbl_estado_cloud.pack(side="right", padx=10)
+        self.lbl_estado_local.pack(side="right", padx=10)
 
     # --- 2. TARJETAS DE MÉTRICAS (KPIs) ---
     def crear_panel_metricas(self):
@@ -98,7 +106,6 @@ class InventarioBienesApp:
         card = tk.Frame(parent, bg=color_bg, highlightbackground=color_borde, highlightthickness=1, bd=0)
         card.grid(row=0, column=col, sticky="nsew", padx=3)
 
-        # Barra lateral de color
         left_strip = tk.Frame(card, bg=color_borde, width=4)
         left_strip.pack(side="left", fill="y")
 
@@ -121,13 +128,20 @@ class InventarioBienesApp:
         operativos = 0
         preventivos = 0
         correctivos = 0
+        
+        # Contar desincorporados registrados en el archivo de bajas
         desincorporados = 0
+        if os.path.exists(ARCHIVO_BAJAS):
+            try:
+                with open(ARCHIVO_BAJAS, "r", encoding="utf-8") as f:
+                    bajas = json.load(f)
+                    desincorporados = len(bajas)
+            except Exception:
+                desincorporados = 0
 
         for b in self.bienes:
             mant = str(b.get("mantenimiento", "")).strip()
-            if mant == "Desincorporado" or "Baja" in mant:
-                desincorporados += 1
-            elif "Preventivo" in mant:
+            if "Preventivo" in mant:
                 preventivos += 1
             elif "Correctivo" in mant:
                 correctivos += 1
@@ -178,7 +192,7 @@ class InventarioBienesApp:
         
         # Fila 2
         tk.Label(frame_form, text="¿Mantenimiento?:", bg="#ffffff", font=("Segoe UI", 8, "bold")).grid(row=2, column=0, padx=(10, 5), pady=4, sticky="e")
-        self.combo_mant = ttk.Combobox(frame_form, values=["No", "Sí (Preventivo)", "Sí (Correctivo)", "Desincorporado"], font=("Segoe UI", 9), width=15, state="readonly")
+        self.combo_mant = ttk.Combobox(frame_form, values=["No", "Sí (Preventivo)", "Sí (Correctivo)"], font=("Segoe UI", 9), width=15, state="readonly")
         self.combo_mant.current(0)
         self.combo_mant.grid(row=2, column=1, padx=5, pady=4, sticky="w")
         
@@ -251,34 +265,54 @@ class InventarioBienesApp:
         btn_cargar.pack(side="left", padx=(0, 10))
         
         btn_eliminar = tk.Button(frame_acciones, text="Dar de Baja / Generar Acta PDF", bg="#DC2626", fg="white", font=("Segoe UI", 8, "bold"), command=self.dar_de_baja_bien, bd=0, padx=12, pady=5, cursor="hand2")
-        btn_eliminar.pack(side="left")
+        btn_eliminar.pack(side="left", padx=(0, 10))
+
+        # Botón para futura función de respaldo en la nube
+        btn_respaldo = tk.Button(frame_acciones, text="☁️ Respaldo en Nube (Próximamente)", bg="#0284C7", fg="white", font=("Segoe UI", 8, "bold"), command=self.respaldar_en_nube_placeholder, bd=0, padx=12, pady=5, cursor="hand2")
+        btn_respaldo.pack(side="left")
         
-        lbl_info = tk.Label(frame_acciones, text="SIGAR V1.0 — Universidad Nacional Experimental de los Llanos Occidentales Ezequiel Zamora", font=("Segoe UI", 8, "italic"), fg="#6b7280", bg="#f4f6f9")
+        lbl_info = tk.Label(frame_acciones, text="SIGAR V1.0 (Modo Local) — UNELLEZ", font=("Segoe UI", 8, "italic"), fg="#6b7280", bg="#f4f6f9")
         lbl_info.pack(side="right", pady=3)
 
-    # --- LÓGICA CONEXIÓN API & BACKEND ---
-    def cargar_datos(self):
-        """Descarga los activos desde la API en Render."""
+    # --- MANEJO DE PERSISTENCIA LOCAL (JSON) ---
+    def cargar_datos_locales(self):
+        """Carga la lista de activos desde bienes.json localmente."""
+        if not os.path.exists(ARCHIVO_BIENES):
+            return []
         try:
-            url_peticion = f"{API_BASE_URL}/activos"
-            respuesta = requests.get(url_peticion, timeout=45)
-            
-            if respuesta.status_code == 404:
-                respuesta = requests.get(f"{BASE_URL}/activos", timeout=45)
-
-            if respuesta.status_code == 200:
-                if hasattr(self, 'lbl_estado_cloud'):
-                    self.lbl_estado_cloud.config(text="● Conectado a Render Cloud  ", fg="#A3E635")
-                return respuesta.json()
-            else:
-                messagebox.showerror("Error de Servidor", f"No se pudo sincronizar los datos. Código: {respuesta.status_code}")
-                return []
+            with open(ARCHIVO_BIENES, "r", encoding="utf-8") as f:
+                return json.load(f)
         except Exception as e:
-            if hasattr(self, 'lbl_estado_cloud'):
-                self.lbl_estado_cloud.config(text="● Sin Conexión a Cloud  ", fg="#F87171")
-            messagebox.showwarning("Error de Conexión", f"No hay comunicación con la nube en Render:\n{e}")
+            messagebox.showerror("Error de Lectura", f"No se pudieron cargar los datos de {ARCHIVO_BIENES}:\n{e}")
             return []
 
+    def guardar_datos_locales(self):
+        """Guarda la lista actual de activos en bienes.json."""
+        try:
+            with open(ARCHIVO_BIENES, "w", encoding="utf-8") as f:
+                json.dump(self.bienes, f, ensure_ascii=False, indent=4)
+            return True
+        except Exception as e:
+            messagebox.showerror("Error de Escritura", f"No se pudo guardar la información en {ARCHIVO_BIENES}:\n{e}")
+            return False
+
+    def guardar_baja_local(self, registro_baja):
+        """Guarda un historial acumulativo de las bajas en bienes_bajas.json."""
+        bajas = []
+        if os.path.exists(ARCHIVO_BAJAS):
+            try:
+                with open(ARCHIVO_BAJAS, "r", encoding="utf-8") as f:
+                    bajas = json.load(f)
+            except Exception:
+                bajas = []
+        bajas.append(registro_baja)
+        try:
+            with open(ARCHIVO_BAJAS, "w", encoding="utf-8") as f:
+                json.dump(bajas, f, ensure_ascii=False, indent=4)
+        except Exception as e:
+            messagebox.showerror("Error en Registro de Baja", f"No se pudo registrar la baja en {ARCHIVO_BAJAS}:\n{e}")
+
+    # --- MÉTODOS CRUD LOCALES ---
     def agregar_bien(self):
         id_val = self.entry_id.get().strip()
         nombre_val = self.entry_nombre.get().strip()
@@ -297,6 +331,11 @@ class InventarioBienesApp:
         except ValueError:
             messagebox.showwarning("Tipo Incorrecto", "El ID debe ser un número entero.")
             return
+
+        # Verificar si el ID ya existe en el archivo local
+        if any(b["id"] == id_int for b in self.bienes):
+            messagebox.showwarning("ID Duplicado", f"El activo con ID {id_int} ya existe en el sistema.")
+            return
             
         nuevo_bien = {
             "id": id_int, 
@@ -308,25 +347,17 @@ class InventarioBienesApp:
             "desc_mant": desc_mant_val if mant_val != "No" else ""
         }
         
-        try:
-            r = requests.post(f"{API_BASE_URL}/activos", json=nuevo_bien, timeout=45)
-            if r.status_code in (200, 201):
-                self.bienes = self.cargar_datos()
-                
-                opciones_actuales = list(self.combo_asignado["values"])
-                if asignado_val not in opciones_actuales:
-                    opciones_actuales.append(asignado_val)
-                    self.combo_asignado["values"] = opciones_actuales
-                
-                self.actualizar_tabla()
-                self.actualizar_metricas()
-                self.limpiar_formulario()
-                messagebox.showinfo("Registro Exitoso", "El activo ha sido guardado correctamente en la nube.")
-            else:
-                err = r.json().get("detail", "Error al registrar en el servidor.")
-                messagebox.showerror("Error de Registro", f"No se pudo guardar: {err}")
-        except Exception as e:
-            messagebox.showerror("Error de Conexión", f"Fallo de red al conectar con Render: {e}")
+        self.bienes.append(nuevo_bien)
+        if self.guardar_datos_locales():
+            opciones_actuales = list(self.combo_asignado["values"])
+            if asignado_val not in opciones_actuales:
+                opciones_actuales.append(asignado_val)
+                self.combo_asignado["values"] = opciones_actuales
+            
+            self.actualizar_tabla()
+            self.actualizar_metricas()
+            self.limpiar_formulario()
+            messagebox.showinfo("Registro Exitoso", "El activo ha sido guardado localmente en bienes.json.")
 
     def actualizar_bien(self):
         id_val = self.entry_id.get().strip()
@@ -350,8 +381,13 @@ class InventarioBienesApp:
         if not nombre_val or not asignado_val:
             messagebox.showwarning("Campos Incompletos", "Por favor, complete la Descripción/Nombre y 'Asignado a'.")
             return
+
+        index = next((i for i, b in enumerate(self.bienes) if b["id"] == id_int), None)
+        if index is None:
+            messagebox.showerror("No Encontrado", f"No se encontró ningún activo con el ID {id_int}.")
+            return
             
-        bien_actualizado = {
+        self.bienes[index] = {
             "id": id_int,
             "nombre": nombre_val,
             "asignado_a": asignado_val,
@@ -361,25 +397,16 @@ class InventarioBienesApp:
             "desc_mant": desc_mant_val if mant_val != "No" else ""
         }
         
-        try:
-            r = requests.put(f"{API_BASE_URL}/activos/{id_int}", json=bien_actualizado, timeout=45)
-            if r.status_code == 200:
-                self.bienes = self.cargar_datos()
+        if self.guardar_datos_locales():
+            opciones_actuales = list(self.combo_asignado["values"])
+            if asignado_val not in opciones_actuales:
+                opciones_actuales.append(asignado_val)
+                self.combo_asignado["values"] = opciones_actuales
                 
-                opciones_actuales = list(self.combo_asignado["values"])
-                if asignado_val not in opciones_actuales:
-                    opciones_actuales.append(asignado_val)
-                    self.combo_asignado["values"] = opciones_actuales
-                    
-                self.actualizar_tabla()
-                self.actualizar_metricas()
-                self.limpiar_formulario()
-                messagebox.showinfo("Actualización Exitosa", f"Los datos del activo ID {id_int} han sido modificados.")
-            else:
-                err = r.json().get("detail", "Error en el servidor.")
-                messagebox.showerror("Error de Servidor", f"No se pudo actualizar: {err}")
-        except Exception as e:
-            messagebox.showerror("Error de Conexión", f"Fallo al comunicarse con Render: {e}")
+            self.actualizar_tabla()
+            self.actualizar_metricas()
+            self.limpiar_formulario()
+            messagebox.showinfo("Actualización Exitosa", f"Los datos del activo ID {id_int} han sido modificados localmente.")
 
     def dar_de_baja_bien(self):
         seleccion = self.tabla.selection()
@@ -407,48 +434,57 @@ class InventarioBienesApp:
 
         confirmacion = messagebox.askyesno(
             "Confirmar Desincorporación", 
-            f"¿Está seguro de desincorporar el activo ID {id_bien}?\n\nMotivo: {motivo}\n\nEsta acción registrará la baja en la nube y generará el acta PDF correspondiente."
+            f"¿Está seguro de desincorporar el activo ID {id_bien}?\n\nMotivo: {motivo}\n\nEsta acción removerá el bien del inventario activo y generará el acta PDF."
         )
         
         if confirmacion:
-            try:
-                r = requests.post(
-                    f"{API_BASE_URL}/activos/{id_bien}/baja",
-                    json={"motivo": motivo},
-                    timeout=45
-                )
-                if r.status_code == 200:
-                    bien_objetivo = next((b for b in self.bienes if b["id"] == id_bien), None)
-                    fecha_hora_baja = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
-                    
-                    registro_baja = {
-                        "id": id_bien,
-                        "nombre": nombre_bien,
-                        "asignado_a": bien_objetivo.get("asignado_a", "N/A") if bien_objetivo else "N/A",
-                        "mantenimiento": bien_objetivo.get("mantenimiento", "N/A") if bien_objetivo else "N/A",
-                        "fecha_ultimo_mant": bien_objetivo.get("fecha_mant", "N/A") if bien_objetivo else "N/A",
-                        "desc_mant": bien_objetivo.get("desc_mant", "") if bien_objetivo else "",
-                        "motivo_baja": motivo,
-                        "fecha_baja": fecha_hora_baja
-                    }
-                    
-                    archivo_generado = self.generar_acta_baja(registro_baja)
-                    
-                    self.bienes = self.cargar_datos()
-                    self.actualizar_tabla()
-                    self.actualizar_metricas()
-                    self.limpiar_formulario()
-                    
-                    messagebox.showinfo(
-                        "Baja Procesada con Éxito", 
-                        f"El activo ID {id_bien} ha sido desincorporado.\n\n📄 Documento generado: {archivo_generado}"
-                    )
-                else:
-                    err = r.json().get("detail", "Error en el servidor.")
-                    messagebox.showerror("Error", f"No se pudo procesar la baja: {err}")
-            except Exception as e:
-                messagebox.showerror("Error de Conexión", f"Fallo al procesar la baja en la nube: {e}")
+            bien_objetivo = next((b for b in self.bienes if b["id"] == id_bien), None)
+            fecha_hora_baja = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
+            
+            registro_baja = {
+                "id": id_bien,
+                "nombre": nombre_bien,
+                "asignado_a": bien_objetivo.get("asignado_a", "N/A") if bien_objetivo else "N/A",
+                "mantenimiento": bien_objetivo.get("mantenimiento", "N/A") if bien_objetivo else "N/A",
+                "fecha_ultimo_mant": bien_objetivo.get("fecha_mant", "N/A") if bien_objetivo else "N/A",
+                "desc_mant": bien_objetivo.get("desc_mant", "") if bien_objetivo else "",
+                "motivo_baja": motivo,
+                "fecha_baja": fecha_hora_baja
+            }
+            
+            # Remover de activos vigentes y registrar en bajas
+            self.bienes = [b for b in self.bienes if b["id"] != id_bien]
+            self.guardar_datos_locales()
+            self.guardar_baja_local(registro_baja)
+            
+            archivo_generado = self.generar_acta_baja(registro_baja)
+            
+            self.actualizar_tabla()
+            self.actualizar_metricas()
+            self.limpiar_formulario()
+            
+            messagebox.showinfo(
+                "Baja Procesada con Éxito", 
+                f"El activo ID {id_bien} ha sido desincorporado.\n\n📄 Documento generado: {archivo_generado}"
+            )
 
+    # --- APARTADO RESERVADO PARA FUTURA SINCRONIZACIÓN EN LA NUBE ---
+    def respaldar_en_nube_placeholder(self):
+        """Estructura preparada para implementar la subida/sincronización del archivo bienes.json hacia Render en el futuro."""
+        if not HAS_REQUESTS:
+            messagebox.showinfo(
+                "Respaldo en Nube (Próximamente)",
+                "Para activar el respaldo en la nube en el futuro, asegúrate de instalar la librería 'requests' (pip install requests)."
+            )
+            return
+
+        messagebox.showinfo(
+            "Módulo de Respaldo en la Nube (Reservado)",
+            "Esta función enviará una copia del archivo local 'bienes.json' "
+            f"hacia el servidor remoto ({URL_RESPALDO_CLOUD}) cuando decidas activarlo."
+        )
+
+    # --- GENERADOR DE REPORTES (PDF / TXT) ---
     def generar_acta_baja(self, registro):
         nombre_base = f"Acta_Baja_ID_{registro['id']}"
         
@@ -541,12 +577,12 @@ Responsable del Equipo                  Unidad de Bienes UNELLEZ
                 f.write(contenido)
             return archivo_txt
 
+    # --- FUNCIONES DE FILTRADO Y NAVEGACIÓN ---
     def filtrar_tabla(self, event=None):
         criterio = self.entry_buscar.get().strip().lower()
         for item in self.tabla.get_children():
             self.tabla.delete(item)
             
-        filtrados = []
         for bien in self.bienes:
             id_str = str(bien["id"]).lower()
             nombre_str = str(bien["nombre"]).lower()
@@ -554,7 +590,6 @@ Responsable del Equipo                  Unidad de Bienes UNELLEZ
             desc_str = str(bien.get("desc_mant", "")).lower()
             
             if criterio in id_str or criterio in nombre_str or criterio in asignado_str or criterio in desc_str:
-                filtrados.append(bien)
                 self.tabla.insert("", "end", values=(
                     bien["id"],
                     bien["nombre"],
