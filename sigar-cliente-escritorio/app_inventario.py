@@ -31,7 +31,7 @@ except ImportError:
 # --- CONFIGURACIÓN DE ALMACENAMIENTO LOCAL Y RESPALDO ---
 ARCHIVO_BIENES = "bienes.json"
 ARCHIVO_BAJAS = "bienes_bajas.json"
-URL_RESPALDO_CLOUD = "https://sigar-unellez.onrender.com/api/respaldo"
+URL_RESPALDO_CLOUD = "https://script.google.com/macros/s/AKfycbyo4mwCjTwhYUuQ6siUEVbKuf4SE77_VKwuJbUcAc9gMFXLeMLpN59X2-tFsH17ae_bHg/exec"
 ARCHIVO_LOGO = "UNELLEZ LOGO.png"  # Nombre exacto del archivo de logo en la carpeta
 
 class InventarioBienesApp:
@@ -674,18 +674,71 @@ class InventarioBienesApp:
             )
 
     def respaldar_en_nube_placeholder(self):
+        # 1. Solicitar el correo electrónico mediante un cuadro de diálogo emergente
+        correo_usuario = simpledialog.askstring(
+            "Respaldo en la Nube - SIGAR",
+            "Ingrese el correo electrónico autorizado para la cuenta de Google Drive / Nube:",
+            parent=self.root
+        )
+        
+        if correo_usuario is None:
+            return  # Si el usuario cancela
+            
+        correo_usuario = correo_usuario.strip()
+        if not correo_usuario or "@" not in correo_usuario:
+            messagebox.showwarning("Correo Inválido", "Debe ingresar una dirección de correo electrónico válida.")
+            return
+
+        # 2. Verificar si existe el archivo de bienes localmente
+        if not os.path.exists(ARCHIVO_BIENES):
+            messagebox.showwarning("Sin Archivo", "No se encontró el archivo 'bienes.json' para respaldar.")
+            return
+
+        # 3. Validar si requests está disponible para hacer la petición al servidor o API en la nube
         if not HAS_REQUESTS:
-            messagebox.showinfo(
-                "Respaldo en Nube (Próximamente)",
-                "Para activar el respaldo en la nube en el futuro, asegúrate de instalar la librería 'requests' (pip install requests)."
+            messagebox.showerror(
+                "Librería Faltante", 
+                "Para realizar la conexión con la nube, se requiere la librería 'requests'.\nInstálala ejecutando: pip install requests"
             )
             return
 
-        messagebox.showinfo(
-            "Módulo de Respaldo en la Nube (Reservado)",
-            "Esta función enviará una copia del archivo local 'bienes.json' "
-            f"hacia el servidor remoto ({URL_RESPALDO_CLOUD}) cuando decidas activarlo."
-        )
+        # 4. Proceso de envío del respaldo a la nube
+        try:
+            # Cargamos el contenido del archivo JSON de bienes
+            with open(ARCHIVO_BIENES, "r", encoding="utf-8") as f:
+                datos_bienes = json.load(f)
+
+            payload = {
+                "correo": correo_usuario,
+                "fecha_respaldo": datetime.now().strftime("%d/%m/%Y %H:%M:%S"),
+                "total_bienes": len(datos_bienes),
+                "bienes": datos_bienes
+            }
+
+            # Indicador visual de espera (opcional o mensaje directo)
+            messagebox.showinfo("Conectando...", f"Preparando envío de respaldo para la cuenta:\n{correo_usuario}")
+
+            # Petición POST hacia tu backend o API en la nube configurada
+            response = requests.post(URL_RESPALDO_CLOUD, json=payload, timeout=15)
+
+            if response.status_code == 200 or response.status_code == 201:
+                messagebox.showinfo(
+                    "Respaldo Exitoso", 
+                    f"El respaldo de los activos se ha subido correctamente a la nube asociado al correo:\n{correo_usuario}"
+                )
+            else:
+                messagebox.showerror(
+                    "Error en la Nube", 
+                    f"El servidor respondió con un código de error: {response.status_code}\nDetalle: {response.text}"
+                )
+
+        except requests.exceptions.RequestException as e:
+            messagebox.showerror(
+                "Error de Conexión", 
+                "No se pudo conectar con el servidor de respaldo en la nube.\nVerifique su conexión a internet.\n\nDetalle técnico: " + str(e)
+            )
+        except Exception as e:
+            messagebox.showerror("Error Inesperado", f"Ocurrió un error al procesar el respaldo:\n{e}")
 
     # --- GENERADOR DE REPORTES (PDF / TXT) ---
     def generar_acta_baja(self, registro):
