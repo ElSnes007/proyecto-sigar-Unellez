@@ -1,11 +1,20 @@
 [
     {
         "id": 1,
-        "nombre": "Laptop Dell Latitude 3420 Core i7 16GB RAM SSD 512GB",
-        "asignado_a": "Coordinación de Sistemas",
+        "nombre": "escritorio de madera",
+        "asignado_a": "Departamento de Sistemas",
+        "mantenimiento": "Sí (Correctivo)",
+        "fecha_mant": "27/09/2026",
+        "proximo_mant": "28/12/2026",
+        "desc_mant": "Grieta en el soporte de la mesa"
+    },
+    {
+        "id": 2,
+        "nombre": "televisor",
+        "asignado_a": "Rectorado",
         "mantenimiento": "Sí (Preventivo)",
-        "fecha_mant": "15/05/2026",
-        "proximo_mant": "17/08/2026",
-        "desc_mant": "Limpieza de ventiladores y cambio de pasta térmica"
+        "fecha_mant": "27/06/2026",
+        "proximo_mant": "28/09/2026",
+        "desc_mant": "monitor LG 23\""
     }
 ]
