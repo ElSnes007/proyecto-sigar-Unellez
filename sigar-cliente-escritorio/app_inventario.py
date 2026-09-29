@@ -32,7 +32,7 @@ except ImportError:
 ARCHIVO_BIENES = "bienes.json"
 ARCHIVO_BAJAS = "bienes_bajas.json"
 URL_RESPALDO_CLOUD = "https://sigar-unellez.onrender.com/api/respaldo"
-ARCHIVO_LOGO = "UNELLEZ LOGO.png"  # Nombre exacto del archivo de logo en la carpeta
+ARCHIVO_LOGO = "UNELLEZ LOGO.png"
 
 class InventarioBienesApp:
     def __init__(self, root):
@@ -108,7 +108,7 @@ class InventarioBienesApp:
         self.labels_texto = []
         self.entries_widgets = []
 
-        # Construcción de componentes gráficos
+        # Construcción de componentes gráficos en orden correcto
         self.crear_cintillo_institucional()
         self.crear_panel_metricas()
         self.crear_formulario()
@@ -116,7 +116,7 @@ class InventarioBienesApp:
         self.crear_tabla()
         self.crear_panel_acciones()
         
-        # Aplicar estilo inicial
+        # Aplicar estilo tras haber inicializado todas las estructuras
         self.aplicar_tema_widgets()
 
         # Cargar datos locales e inicializar
@@ -138,18 +138,13 @@ class InventarioBienesApp:
 
     # --- 1. CINTILLO INSTITUCIONAL Y LOGO UNELLEZ ---
     def crear_cintillo_institucional(self):
-        # Altura fija de la barra (44 px)
         self.frame_cintillo = tk.Frame(self.root, bg="#002B49", height=44)
         self.frame_cintillo.pack(fill="x", side="top")
-        
-        # Evita que el contenido altere la altura de la barra
         self.frame_cintillo.pack_propagate(False)
 
-        # Contenedor para Logo + Texto + Lema
         frame_logo_titulo = tk.Frame(self.frame_cintillo, bg="#002B49")
         frame_logo_titulo.pack(side="left", padx=12, pady=2)
 
-        # Cargar la imagen del logo
         self.logo_img = None
         if os.path.exists(ARCHIVO_LOGO):
             try:
@@ -168,7 +163,6 @@ class InventarioBienesApp:
             lbl_logo = tk.Label(frame_logo_titulo, image=self.logo_img, bg="#002B49")
             lbl_logo.pack(side="left", padx=(0, 8))
 
-        # Texto "UNELLEZ" destacado en naranja
         lbl_unellez = tk.Label(
             frame_logo_titulo, 
             text="UNELLEZ", 
@@ -178,7 +172,6 @@ class InventarioBienesApp:
         )
         lbl_unellez.pack(side="left")
 
-        # Separador "|"
         lbl_separador = tk.Label(
             frame_logo_titulo,
             text="|",
@@ -188,36 +181,30 @@ class InventarioBienesApp:
         )
         lbl_separador.pack(side="left", padx=(10, 10))
 
-        # --- Cargar y procesar el nuevo lema en 1 sola línea ---
         path_lema = "lema_unellez_oro.png"
         if os.path.exists(path_lema):
             try:
                 img_lema_pil = Image.open(path_lema).convert("RGBA")
 
-                # 1. Hacer transparente el fondo blanco automáticamente
                 datas = img_lema_pil.getdata()
                 new_data = []
                 for item in datas:
-                    # Detecta píxeles blancos/claros y les asigna transparencia
                     if item[0] > 230 and item[1] > 230 and item[2] > 230:
                         new_data.append((255, 255, 255, 0))
                     else:
                         new_data.append(item)
                 img_lema_pil.putdata(new_data)
 
-                # 2. Recortar los bordes vacíos para aprovechar el espacio exacto del texto
                 bbox = img_lema_pil.getbbox()
                 if bbox:
                     img_lema_pil = img_lema_pil.crop(bbox)
 
-                # 3. Escalar con altura fija (22 px) manteniendo la proporción (Aspect Ratio)
                 target_height = 22
                 aspect_ratio = img_lema_pil.width / img_lema_pil.height
                 target_width = int(target_height * aspect_ratio)
 
                 img_lema_pil = img_lema_pil.resize((target_width, target_height), Image.Resampling.LANCZOS)
 
-                # 4. Mostrar en el Label
                 self.img_lema_oro = ImageTk.PhotoImage(img_lema_pil)
                 lbl_lema = tk.Label(
                     frame_logo_titulo, 
@@ -229,7 +216,6 @@ class InventarioBienesApp:
             except Exception as e:
                 print(f"Error procesando lema: {e}")
 
-        # Botón para activar/desactivar Cuidado de Vista / Modo Oscuro
         self.btn_modo_oscuro = tk.Button(
             self.frame_cintillo,
             text="🌙 Cuidado de Vista",
@@ -243,15 +229,16 @@ class InventarioBienesApp:
 
     # --- ANIMACIÓN Y CAMBIO DE TEMA ---
     def toggle_modo_oscuro_animado(self):
+        color_inicio = self.PALETA["oscuro" if self.modo_oscuro else "claro"]["bg_root"]
         self.modo_oscuro = not self.modo_oscuro
-        
-        color_inicio = self.PALETA["oscuro" if not self.modo_oscuro else "claro"]["bg_root"]
         color_fin = self.PALETA["oscuro" if self.modo_oscuro else "claro"]["bg_root"]
-        
+
         rgb_inicio = self.hex_a_rgb(color_inicio)
         rgb_fin = self.hex_a_rgb(color_fin)
-        
+
         self.animar_transicion_bg(rgb_inicio, rgb_fin, paso=0, total_pasos=12)
+
+
 
     def hex_a_rgb(self, hex_str):
         hex_str = hex_str.lstrip('#')
@@ -279,48 +266,49 @@ class InventarioBienesApp:
             self.aplicar_tema_widgets()
 
     def aplicar_tema_widgets(self):
+        """Aplica los colores de la paleta actual a todos los componentes de la interfaz."""
         t = "oscuro" if self.modo_oscuro else "claro"
         pal = self.PALETA[t]
 
-        # 1. Fondo principal de la ventana
+        # 1. Ventana Principal
         self.root.config(bg=pal["bg_root"])
 
-        # 2. Estado del botón de modo oscuro
+        # 2. Botón Cambio de Tema
         if self.modo_oscuro:
-            self.btn_modo_oscuro.config(text="☀️ Modo Claro", bg="#f59e0b", fg="#0f172a", activebackground="#fbbf24")
+            self.btn_modo_oscuro.config(
+                text="☀️ Modo Claro", bg="#f59e0b", fg="#0f172a", activebackground="#fbbf24"
+            )
         else:
-            self.btn_modo_oscuro.config(text="🌙 Cuidado de Vista", bg="#1e293b", fg="#f8fafc", activebackground="#334155")
+            self.btn_modo_oscuro.config(
+                text="🌙 Cuidado de Vista", bg="#1e293b", fg="#f8fafc", activebackground="#334155"
+            )
 
-        # 3. Formulario principal como Tarjeta / Panel
-        # Se usa un borde plano de 1px (highlightthickness) sin relieves 3D nativos
+        # 3. Formulario
         self.frame_form.config(
-            bg=pal["bg_panel"], 
-            fg=pal["fg_texto"], 
+            bg=pal["bg_panel"],
             bd=0,
             highlightthickness=1,
             highlightbackground=pal["border_panel"],
             highlightcolor=pal["border_panel"]
         )
-        
-        # 4. Todos los textos y sub-marcos dentro del formulario adoptan bg_panel
+
         for lbl in self.labels_texto:
             lbl.config(bg=pal["bg_panel"], fg=pal["fg_texto"])
-            
+
         for f in self.frames_form_internos:
             f.config(bg=pal["bg_panel"])
 
-        # 5. Cajas de texto (Entry)
         for entry in self.entries_widgets:
             entry.config(
-                bg=pal["entry_bg"], 
-                fg=pal["entry_fg"], 
-                insertbackground=pal["entry_fg"], 
+                bg=pal["entry_bg"],
+                fg=pal["entry_fg"],
+                insertbackground=pal["entry_fg"],
                 highlightbackground=pal["entry_border"],
                 highlightthickness=1,
                 bd=0
             )
 
-        # 6. Estilizado uniforme para Comboboxes (Desplegables)
+        # 4. Comboboxes (ttk)
         self.style.theme_use("default")
         self.style.configure(
             "TCombobox",
@@ -333,25 +321,51 @@ class InventarioBienesApp:
             selectforeground=pal["entry_fg"]
         )
 
-        # 7. Elementos auxiliares del pie
+        # 5. Labels de pie / búsqueda
         self.entry_proximo.config(bg=pal["bg_root"], fg=pal["fg_texto"])
         self.lbl_info_pie.config(bg=pal["bg_root"], fg=pal["fg_subtexto"])
         self.lbl_indicador_busqueda.config(bg=pal["bg_root"], fg=pal["fg_subtexto"])
         self.lbl_icon_buscar.config(bg=pal["bg_root"], fg=pal["fg_texto"])
 
-        # 8. Tarjetas KPI
+        # 6. TARJETAS KPI (Sincronización correcta de fondo, franja lateral y línea del título)
         for i, card_info in enumerate(self.tarjetas_widgets):
             cfg = pal["kpis"][i]
-            card_info["card"].config(bg=cfg["bg"], highlightbackground=cfg["border"])
-            card_info["strip"].config(bg=cfg["border"])
-            card_info["content"].config(bg=cfg["bg"])
-            card_info["tit"].config(bg=cfg["bg"], fg=cfg["text"])
-            card_info["val"].config(bg=cfg["bg"], fg=cfg["val"])
-            card_info["sub"].config(bg=cfg["bg"], fg=cfg["sub"])
+            bg_tarjeta = cfg["bg"]
+            color_texto_acento = cfg["text"]
 
-        # 9. Tabla (Treeview)
-        self.style.configure("Treeview", background=pal["tree_bg"], foreground=pal["tree_fg"], fieldbackground=pal["tree_bg"])
-        self.style.configure("Treeview.Heading", background=pal["tree_head_bg"], foreground=pal["tree_head_fg"])
+            card_info["card"].config(bg=bg_tarjeta, highlightbackground=cfg["border"])
+            card_info["strip"].config(bg=cfg["border"])
+            card_info["content"].config(bg=bg_tarjeta)
+
+            if "top_frame" in card_info:
+                card_info["top_frame"].config(bg=bg_tarjeta)
+            if "left_col" in card_info:
+                card_info["left_col"].config(bg=bg_tarjeta)
+            if "right_col" in card_info:
+                card_info["right_col"].config(bg=bg_tarjeta)
+            card_info["head"].config(bg=bg_tarjeta)
+
+            # AQUÍ ES DONDE SE PINTA LA LÍNEA DEL MISMO COLOR DE LA TIPOGRAFÍA
+            if "linea" in card_info:
+                card_info["linea"].config(bg=color_texto_acento)
+
+            card_info["tit"].config(bg=bg_tarjeta, fg=color_texto_acento)
+            card_info["sub"].config(bg=bg_tarjeta, fg=cfg["sub"])
+            card_info["icon"].config(bg=bg_tarjeta, fg=color_texto_acento)
+            card_info["val"].config(bg=bg_tarjeta, fg=cfg["val"])
+
+        # 7. Tabla Treeview
+        self.style.configure(
+            "Treeview",
+            background=pal["tree_bg"],
+            foreground=pal["tree_fg"],
+            fieldbackground=pal["tree_bg"]
+        )
+        self.style.configure(
+            "Treeview.Heading",
+            background=pal["tree_head_bg"],
+            foreground=pal["tree_head_fg"]
+        )
 
     # --- 2. TARJETAS DE MÉTRICAS (KPIs) PASTEL ---
     def crear_panel_metricas(self):
@@ -361,38 +375,87 @@ class InventarioBienesApp:
         for i in range(5):
             self.frame_kpis.columnconfigure(i, weight=1, uniform="kpi")
 
-        self.lbl_val_total = self.crear_tarjeta(0, "TOTAL ACTIVOS", "0", "Bienes registrados")
-        self.lbl_val_operativos = self.crear_tarjeta(1, "OPERATIVOS", "0", "En servicio activo")
-        self.lbl_val_preventivos = self.crear_tarjeta(2, "PREVENTIVOS", "0", "Ciclo regular (+3M)")
-        self.lbl_val_correctivos = self.crear_tarjeta(3, "CORRECTIVOS", "0", "Ajuste / Reparación")
-        self.lbl_val_desincorporados = self.crear_tarjeta(4, "DESINCORPORADOS", "0", "Actas emitidas")
+        self.tarjetas_widgets = []
 
-    def crear_tarjeta(self, col, titulo, valor_inic, subtitulo):
-        card = tk.Frame(self.frame_kpis, highlightthickness=1, bd=0)
-        card.grid(row=0, column=col, sticky="nsew", padx=3)
+       # Definición de las métricas con sus respectivos iconos seguros
+        metricas = [
+    ("TOTAL ACTIVOS", "0", "Bienes registrados", "📋"),
+    ("OPERATIVOS", "0", "En servicio activo", "🟢"),
+    ("PREVENTIVOS", "0", "Ciclo regular (+3M)", "🛠️"),
+    ("CORRECTIVOS", "0", "Ajuste / Reparación", "⚠️"),
+    ("DESINCORPORADOS", "0", "Actas emitidas", "❌")
+]
 
-        left_strip = tk.Frame(card, width=5)
-        left_strip.pack(side="left", fill="y")
+        for col, (titulo, valor, sub, icono) in enumerate(metricas):
+            print(f"-> Dibujando tarjeta {col}: {titulo} con icono [{icono}]") # <--- Esto saldrá en tu terminal
+            val_widget = self.crear_tarjeta(col, titulo, valor, sub, icono)
 
-        content = tk.Frame(card, padx=10, pady=6)
-        content.pack(side="left", fill="both", expand=True)
+            if col == 0: self.lbl_val_total = val_widget
+            elif col == 1: self.lbl_val_operativos = val_widget
+            elif col == 2: self.lbl_val_preventivos = val_widget
+            elif col == 3: self.lbl_val_correctivos = val_widget
+            elif col == 4: self.lbl_val_desincorporados = val_widget
 
-        lbl_tit = tk.Label(content, text=titulo, font=("Segoe UI", 8, "bold"))
-        lbl_tit.pack(anchor="w")
+    def crear_tarjeta(self, col, titulo, valor_inicial, subtitulo, icono="📊", color_acento="#1E3A8A"):
+        card = tk.Frame(self.frame_kpis, bd=0, highlightthickness=1)
+        card.grid(row=0, column=col, sticky="nsew", padx=4)
 
-        lbl_val = tk.Label(content, text=valor_inic, font=("Segoe UI", 16, "bold"))
-        lbl_val.pack(anchor="w")
+        strip = tk.Frame(card, width=4, bg=color_acento, bd=0, highlightthickness=0)
+        strip.pack(side="left", fill="y")
 
-        lbl_sub = tk.Label(content, text=subtitulo, font=("Segoe UI", 8, "bold"))
-        lbl_sub.pack(anchor="w")
+        content = tk.Frame(card, bd=0, highlightthickness=0)
+        content.pack(side="left", fill="both", expand=True, padx=8, pady=6)
+
+        # Contenedor superior para Título + Línea
+        top_frame = tk.Frame(content, bd=0, highlightthickness=0)
+        top_frame.pack(fill="x")
+
+        lbl_tit = tk.Label(top_frame, text=titulo, font=("Segoe UI", 8, "bold"), fg=color_acento, anchor="w")
+        lbl_tit.pack(fill="x")
+
+        # Línea divisoria de 2px de grosor pintada con el color de la métrica
+        linea_div = tk.Frame(top_frame, height=2, bg=color_acento, bd=0, highlightthickness=0)
+        linea_div.pack(fill="x", pady=(2, 6))
+
+        # Contenedor de datos e icono
+        body_frame = tk.Frame(content, bd=0, highlightthickness=0)
+        body_frame.pack(fill="both", expand=True)
+
+        left_col = tk.Frame(body_frame, bd=0, highlightthickness=0)
+        left_col.pack(side="left", fill="both", expand=True)
+
+        lbl_val = tk.Label(left_col, text=valor_inicial, font=("Segoe UI", 18, "bold"), anchor="w")
+        lbl_val.pack(fill="x")
+
+        lbl_sub = tk.Label(left_col, text=subtitulo, font=("Segoe UI", 8), fg=color_acento, anchor="w")
+        lbl_sub.pack(fill="x")
+
+        right_col = tk.Frame(body_frame, width=35, bd=0, highlightthickness=0)
+        right_col.pack_propagate(False)
+        right_col.pack(side="right", fill="y")
+
+        lbl_icon = tk.Label(right_col, text=icono, font=("Segoe UI", 16), fg=color_acento, anchor="e")
+        lbl_icon.pack(expand=True, fill="both")
 
         self.tarjetas_widgets.append({
-            "card": card, "strip": left_strip, "content": content,
-            "tit": lbl_tit, "val": lbl_val, "sub": lbl_sub
+            "card": card,
+            "strip": strip,
+            "content": content,
+            "top_frame": top_frame,
+            "linea": linea_div,
+            "head": body_frame,
+            "left_col": left_col,
+            "right_col": right_col,
+            "tit": lbl_tit,
+            "icon": lbl_icon,
+            "val": lbl_val,
+            "sub": lbl_sub,
+            "acento": color_acento
         })
 
         return lbl_val
 
+    
     def actualizar_metricas(self):
         total = len(self.bienes)
         operativos = 0
