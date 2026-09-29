@@ -6,6 +6,107 @@ from datetime import datetime, date, timedelta
 import tkinter as tk
 from tkinter import ttk, messagebox, simpledialog
 
+
+# clase para customizar la barra de scroll
+class CustomScrollbar(tk.Canvas):
+    def __init__(self, parent, command=None, width=12, bg_color="#0f172a", thumb_color="#88BDFC", **kw):
+        super().__init__(parent, width=width, highlightthickness=0, bd=0, bg=bg_color, **kw)
+        self.command = command
+        self.thumb_color = thumb_color
+        self.bg_color = bg_color
+        self.width_bar = width
+        
+        self.first = 0.0
+        self.last = 1.0
+        
+        # Eventos para arrastrar la barra y clic en flechas
+        self.bind("<Configure>", self._draw)
+        self.bind("<Button-1>", self._on_click)
+        self.bind("<B1-Motion>", self._on_drag)
+
+    def set(self, first, last):
+        self.first = float(first)
+        self.last = float(last)
+        self._draw()
+
+    def _draw(self, event=None):
+        self.delete("all")
+        w = self.winfo_width()
+        h = self.winfo_height()
+        if h <= 40:
+            return
+
+        arrow_size = 14  # Tamaño de la flecha aumentado
+        margin = 3
+
+        # 1. Flecha Superior (Limpia, sin fondo ni marco)
+        self.create_polygon(
+            w / 2, margin,
+            margin, margin + arrow_size,
+            w - margin, margin + arrow_size,
+            fill=self.thumb_color, outline="", tags="arrow_up"
+        )
+
+        # 2. Flecha Inferior (Limpia, sin fondo ni marco)
+        self.create_polygon(
+            w / 2, h - margin,
+            margin, h - margin - arrow_size,
+            w - margin, h - margin - arrow_size,
+            fill=self.thumb_color, outline="", tags="arrow_down"
+        )
+
+        # 3. Cálculo de posición del Thumb (Barra deslizante)
+        track_top = arrow_size + margin + 2
+        track_bottom = h - arrow_size - margin - 2
+        track_height = track_bottom - track_top
+
+        if track_height <= 0:
+            return
+
+        top_y = track_top + (self.first * track_height)
+        bottom_y = track_top + (self.last * track_height)
+
+        # Mínimo alto visible para el indicador
+        if (bottom_y - top_y) < 20:
+            bottom_y = top_y + 20
+
+        # 4. Dibujar Barra Deslizante con Bordes Redondeados (Pill Shape)
+        r = (w - 4) / 2
+        x1, y1, x2, y2 = 2, top_y, w - 2, bottom_y
+
+        self.create_oval(x1, y1, x2, y1 + 2*r, fill=self.thumb_color, outline="")
+        self.create_oval(x1, y2 - 2*r, x2, y2, fill=self.thumb_color, outline="")
+        self.create_rectangle(x1, y1 + r, x2, y2 - r, fill=self.thumb_color, outline="")
+
+    def _on_click(self, event):
+        y = event.y
+        h = self.winfo_height()
+        arrow_size = 14
+        
+        if y < arrow_size + 5:
+            if self.command:
+                self.command("scroll", -1, "units")
+        elif y > h - (arrow_size + 5):
+            if self.command:
+                self.command("scroll", 1, "units")
+        else:
+            self._on_drag(event)
+
+    def _on_drag(self, event):
+        h = self.winfo_height()
+        arrow_size = 14
+        margin = 3
+        track_top = arrow_size + margin + 2
+        track_bottom = h - arrow_size - margin - 2
+        track_height = track_bottom - track_top
+
+        if track_height > 0:
+            fraction = (event.y - track_top) / track_height
+            fraction = max(0.0, min(1.0, fraction))
+            if self.command:
+                self.command("moveto", fraction)
+
+
 # Intentar importar PIL (Pillow) para escalado de imagen de alta calidad
 try:
     from PIL import Image, ImageTk
@@ -188,7 +289,7 @@ class InventarioBienesApp:
             try:
                 img_lema_pil = Image.open(path_lema).convert("RGBA")
 
-                datas = img_lema_pil.getdata()
+                datas = img_lema_pil.get_flattened_data()
                 new_data = []
                 for item in datas:
                     if item[0] > 230 and item[1] > 230 and item[2] > 230:
@@ -364,20 +465,86 @@ class InventarioBienesApp:
             card_info["icon"].config(bg=bg_tarjeta, fg=color_texto_acento)
             card_info["val"].config(bg=bg_tarjeta, fg=cfg["val"], font=FONT_KPI_VAL)
 
-        # 7. Tabla Treeview (Tipografía moderna y limpia para filas y encabezados)
+        # 7. Tabla (Treeview) - Diseño Moderno
+        self.style.theme_use("default")
+
+        # Colores según el tema activo
+        tree_bg_even = (
+            pal["tree_bg"] if not self.modo_oscuro else "#1e293b"
+        )  # Fila par
+        tree_bg_odd = (
+            pal["bg_root"] if not self.modo_oscuro else "#0f172a"
+        )  # Fila impar (efecto cebra)
+        select_bg = "#2563eb"  # Azul moderno para la fila seleccionada
+        select_fg = "#ffffff"
+
+        # Configurar estructura de la tabla
         self.style.configure(
             "Treeview",
-            background=pal["tree_bg"],
+            background=tree_bg_even,
             foreground=pal["tree_fg"],
-            fieldbackground=pal["tree_bg"],
-            font=FONT_LABEL,
-            rowheight=24
+            fieldbackground=tree_bg_even,
+            font=("Segoe UI", 9),
+            rowheight=30,  # Fila más amplia y cómoda
+            borderwidth=0,
         )
+
+        # Configurar colores de la fila seleccionada
+        self.style.map(
+            "Treeview",
+            background=[("selected", select_bg)],
+            foreground=[("selected", select_fg)],
+        )
+
+        # Encabezados limpios sin bordes estilo Windows 98
         self.style.configure(
             "Treeview.Heading",
             background=pal["tree_head_bg"],
             foreground=pal["tree_head_fg"],
-            font=FONT_BOLD
+            font=("Segoe UI", 9, "bold"),
+            relief="flat",
+            borderwidth=1,
+        )
+
+        self.style.map(
+            "Treeview.Heading",
+            background=[("active", pal["tree_head_bg"])],
+            foreground=[("active", pal["tree_head_fg"])],
+        )
+
+        # Configuración de tags para el efecto cebra intercalado
+        self.tabla.tag_configure("par", background=tree_bg_even, foreground=pal["tree_fg"])
+        self.tabla.tag_configure("impar", background=tree_bg_odd, foreground=pal["tree_fg"])
+
+        # 8. Scrollbar Minimalista y Moderno (ttk)
+        bg_scroll_trough = (
+            pal["bg_panel"] if not self.modo_oscuro else "#0f172a"
+        )
+        bg_scroll_thumb = "#94a3b8" if not self.modo_oscuro else "#334155"
+        bg_scroll_hover = "#64748b" if not self.modo_oscuro else "#475569"
+
+        self.style.configure(
+            "Vertical.TScrollbar",
+            gripcount=0,
+            background=bg_scroll_thumb,
+            darkcolor=bg_scroll_thumb,
+            lightcolor=bg_scroll_thumb,
+            troughcolor=bg_scroll_trough,
+            bordercolor=bg_scroll_trough,
+            arrowcolor=pal["fg_texto"],
+            arrowsize=11,
+            width=10,  # Barra más delgada y elegante
+        )
+
+        # Mapeo de colores al pasar el cursor o presionar
+        self.style.map(
+            "Vertical.TScrollbar",
+            background=[
+                ("active", bg_scroll_hover),
+                ("pressed", bg_scroll_hover),
+            ],
+            darkcolor=[("active", bg_scroll_hover)],
+            lightcolor=[("active", bg_scroll_hover)],
         )
 
     # --- 2. TARJETAS DE MÉTRICAS (KPIs) PASTEL ---
@@ -394,7 +561,7 @@ class InventarioBienesApp:
         metricas = [
     ("TOTAL ACTIVOS", "0", "Bienes registrados", "📋"),
     ("OPERATIVOS", "0", "En servicio activo", "🟢"),
-    ("PREVENTIVOS", "0", "Ciclo regular (+3M)", "🛠️"),
+    ("PREVENTIVOS", "0", "Ciclo regular (+3M)", "🔧"),
     ("CORRECTIVOS", "0", "Ajuste / Reparación", "⚠️"),
     ("DESINCORPORADOS", "0", "Actas emitidas", "❌")
 ]
@@ -474,8 +641,8 @@ class InventarioBienesApp:
         operativos = 0
         preventivos = 0
         correctivos = 0
-        
         desincorporados = 0
+        
         if os.path.exists(ARCHIVO_BAJAS):
             try:
                 with open(ARCHIVO_BAJAS, "r", encoding="utf-8") as f:
@@ -644,6 +811,7 @@ class InventarioBienesApp:
         
         self.tabla.pack(side="left", fill="both", expand=True)
         scrollbar.pack(side="right", fill="y")
+        
 
     # --- 6. BARRA DE ACCIONES INFERIOR ---
     def crear_panel_acciones(self):
@@ -953,14 +1121,16 @@ Responsable del Equipo                  Unidad de Bienes UNELLEZ
         criterio = self.entry_buscar.get().strip().lower()
         for item in self.tabla.get_children():
             self.tabla.delete(item)
-            
+
+        i = 0
         for bien in self.bienes:
             id_str = str(bien["id"]).lower()
             nombre_str = str(bien["nombre"]).lower()
             asignado_str = str(bien.get("asignado_a", "")).lower()
             desc_str = str(bien.get("desc_mant", "")).lower()
-            
+
             if criterio in id_str or criterio in nombre_str or criterio in asignado_str or criterio in desc_str:
+                tag_fila = "par" if i % 2 == 0 else "impar"
                 self.tabla.insert("", "end", values=(
                     bien["id"],
                     bien["nombre"],
@@ -968,7 +1138,8 @@ Responsable del Equipo                  Unidad de Bienes UNELLEZ
                     bien.get("mantenimiento", "No"),
                     bien.get("fecha_mant", "N/A"),
                     bien.get("proximo_mant", "N/A")
-                ))
+                ), tags=(tag_fila,))
+                i += 1
 
     def limpiar_filtro_busqueda(self):
         self.entry_buscar.delete(0, tk.END)
@@ -1048,15 +1219,18 @@ Responsable del Equipo                  Unidad de Bienes UNELLEZ
     def actualizar_tabla(self):
         for item in self.tabla.get_children():
             self.tabla.delete(item)
-        for bien in getattr(self, 'bienes', []):
+        
+        for i, bien in enumerate(getattr(self, 'bienes', [])):
+            tag_fila = "par" if i % 2 == 0 else "impar"
             self.tabla.insert("", "end", values=(
-                bien["id"], 
-                bien["nombre"], 
+                bien["id"],
+                bien["nombre"],
                 bien.get("asignado_a", "N/A"),
                 bien.get("mantenimiento", "No"),
                 bien.get("fecha_mant", "N/A"),
                 bien.get("proximo_mant", "N/A")
-            ))
+            ), tags=(tag_fila,))
+
 
 if __name__ == "__main__":
     root = tk.Tk()
