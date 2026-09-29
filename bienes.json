@@ -7,5 +7,23 @@
         "fecha_mant": "15/05/2026",
         "proximo_mant": "17/08/2026",
         "desc_mant": "Limpieza de ventiladores y cambio de pasta térmica"
+    },
+    {
+        "id": 2,
+        "nombre": "monitor",
+        "asignado_a": "Administración",
+        "mantenimiento": "No",
+        "fecha_mant": "N/A",
+        "proximo_mant": "N/A",
+        "desc_mant": ""
+    },
+    {
+        "id": 4,
+        "nombre": "pc",
+        "asignado_a": "Administración",
+        "mantenimiento": "Sí (Correctivo)",
+        "fecha_mant": "29/09/2026",
+        "proximo_mant": "29/12/2026",
+        "desc_mant": "fuente abonbada"
     }
 ]

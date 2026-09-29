@@ -34,6 +34,13 @@ ARCHIVO_BAJAS = "bienes_bajas.json"
 URL_RESPALDO_CLOUD = "https://sigar-unellez.onrender.com/api/respaldo"
 ARCHIVO_LOGO = "UNELLEZ LOGO.png"
 
+# Tipografías globales modernas
+FONT_TITLE = ("Segoe UI", 10, "bold")
+FONT_LABEL = ("Segoe UI", 9)
+FONT_BOLD = ("Segoe UI", 9, "bold")
+FONT_KPI_VAL = ("Segoe UI", 20, "bold")
+FONT_KPI_TIT = ("Segoe UI", 8, "bold")
+
 class InventarioBienesApp:
     def __init__(self, root):
         self.root = root
@@ -278,32 +285,38 @@ class InventarioBienesApp:
                 text="🌙 Cuidado de Vista", bg="#1e293b", fg="#f8fafc", activebackground="#334155"
             )
 
-        # 3. Formulario
+       # 3. Formulario principal (LabelFrame)
+        fg_texto_modo = pal["fg_texto"] # Blanco/Claro en oscuro
+        bg_panel_modo = pal["bg_panel"]
+
         self.frame_form.config(
-            bg=pal["bg_panel"],
+            bg=bg_panel_modo, 
+            fg=fg_texto_modo,  # Color del título "Registrar Activo..."
             bd=0,
             highlightthickness=1,
             highlightbackground=pal["border_panel"],
             highlightcolor=pal["border_panel"]
         )
 
+        # FORZAR EL COLOR CLARO EN TODAS LAS ETIQUETAS
         for lbl in self.labels_texto:
-            lbl.config(bg=pal["bg_panel"], fg=pal["fg_texto"])
-
+            lbl.config(bg=bg_panel_modo, fg=fg_texto_modo, font=FONT_LABEL)
+            
         for f in self.frames_form_internos:
-            f.config(bg=pal["bg_panel"])
+            f.config(bg=bg_panel_modo)
 
         for entry in self.entries_widgets:
             entry.config(
-                bg=pal["entry_bg"],
-                fg=pal["entry_fg"],
-                insertbackground=pal["entry_fg"],
+                bg=pal["entry_bg"], 
+                fg=pal["entry_fg"], 
+                insertbackground=pal["entry_fg"], 
                 highlightbackground=pal["entry_border"],
                 highlightthickness=1,
+                font=FONT_LABEL,
                 bd=0
             )
 
-        # 4. Comboboxes (ttk)
+        # 4. Ajuste del Combobox ttk para evitar fondo blanco
         self.style.theme_use("default")
         self.style.configure(
             "TCombobox",
@@ -313,16 +326,19 @@ class InventarioBienesApp:
             darkcolor=pal["entry_bg"],
             lightcolor=pal["entry_bg"],
             selectbackground=pal["entry_bg"],
-            selectforeground=pal["entry_fg"]
+            selectforeground=pal["entry_fg"],
+            arrowcolor=fg_texto_modo,
+            font=FONT_LABEL
         )
+        self.style.map("TCombobox", fieldbackground=[("readonly", pal["entry_bg"])], foreground=[("readonly", pal["entry_fg"])])
 
-        # 5. Labels de pie / búsqueda
-        self.entry_proximo.config(bg=pal["bg_root"], fg=pal["fg_texto"])
-        self.lbl_info_pie.config(bg=pal["bg_root"], fg=pal["fg_subtexto"])
-        self.lbl_indicador_busqueda.config(bg=pal["bg_root"], fg=pal["fg_subtexto"])
-        self.lbl_icon_buscar.config(bg=pal["bg_root"], fg=pal["fg_texto"])
+        # 5. Labels de pie / búsqueda / ayuda
+        self.entry_proximo.config(bg=pal["bg_root"], fg=pal["fg_texto"], font=FONT_BOLD)
+        self.lbl_info_pie.config(bg=pal["bg_root"], fg=pal["fg_subtexto"], font=FONT_LABEL)
+        self.lbl_indicador_busqueda.config(bg=pal["bg_root"], fg=pal["fg_subtexto"], font=FONT_LABEL)
+        self.lbl_icon_buscar.config(bg=pal["bg_root"], fg=pal["fg_texto"], font=FONT_LABEL)
 
-        # 6. TARJETAS KPI (Sincronización correcta de fondo, franja lateral y línea del título)
+        # 6. Tarjetas KPI
         for i, card_info in enumerate(self.tarjetas_widgets):
             cfg = pal["kpis"][i]
             bg_tarjeta = cfg["bg"]
@@ -340,26 +356,28 @@ class InventarioBienesApp:
                 card_info["right_col"].config(bg=bg_tarjeta)
             card_info["head"].config(bg=bg_tarjeta)
 
-            # AQUÍ ES DONDE SE PINTA LA LÍNEA DEL MISMO COLOR DE LA TIPOGRAFÍA
             if "linea" in card_info:
                 card_info["linea"].config(bg=color_texto_acento)
 
-            card_info["tit"].config(bg=bg_tarjeta, fg=color_texto_acento)
-            card_info["sub"].config(bg=bg_tarjeta, fg=cfg["sub"])
+            card_info["tit"].config(bg=bg_tarjeta, fg=color_texto_acento, font=FONT_KPI_TIT)
+            card_info["sub"].config(bg=bg_tarjeta, fg=cfg["sub"], font=FONT_LABEL)
             card_info["icon"].config(bg=bg_tarjeta, fg=color_texto_acento)
-            card_info["val"].config(bg=bg_tarjeta, fg=cfg["val"])
+            card_info["val"].config(bg=bg_tarjeta, fg=cfg["val"], font=FONT_KPI_VAL)
 
-        # 7. Tabla Treeview
+        # 7. Tabla Treeview (Tipografía moderna y limpia para filas y encabezados)
         self.style.configure(
             "Treeview",
             background=pal["tree_bg"],
             foreground=pal["tree_fg"],
-            fieldbackground=pal["tree_bg"]
+            fieldbackground=pal["tree_bg"],
+            font=FONT_LABEL,
+            rowheight=24
         )
         self.style.configure(
             "Treeview.Heading",
             background=pal["tree_head_bg"],
-            foreground=pal["tree_head_fg"]
+            foreground=pal["tree_head_fg"],
+            font=FONT_BOLD
         )
 
     # --- 2. TARJETAS DE MÉTRICAS (KPIs) PASTEL ---
