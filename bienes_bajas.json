@@ -1,0 +1,12 @@
+[
+    {
+        "id": 1,
+        "nombre": "Laptop Dell Latitude 3420 Core i7 16GB RAM SSD 512GB",
+        "asignado_a": "Coordinación de Sistemas",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_ultimo_mant": "15/05/2026",
+        "desc_mant": "Limpieza de ventiladores y cambio de pasta térmica",
+        "motivo_baja": "bjhuyg",
+        "fecha_baja": "27/09/2026 17:20:26"
+    }
+]
