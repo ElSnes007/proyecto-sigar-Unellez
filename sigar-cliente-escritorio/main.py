@@ -70,6 +70,7 @@ class InventarioBienesApp:
         self.crear_formulario()
         self.crear_panel_busqueda()
         self.crear_tabla()
+        self.crear_menu_contextual() # Menú emergente al hacer clic derecho
         self.crear_panel_acciones()
         
         # Aplicar tema
@@ -123,7 +124,6 @@ class InventarioBienesApp:
         )
         lbl_separador.pack(side="left", padx=(10, 10))
 
-        # Lema en una sola línea
         if os.path.exists(PATH_LEMA):
             try:
                 img_lema_pil = Image.open(PATH_LEMA).convert("RGBA")
@@ -453,10 +453,10 @@ class InventarioBienesApp:
         
         tk.Button(self.frame_busqueda, text="Limpiar Filtro", bg="#002B49", fg="white", font=("Segoe UI", 8, "bold"), command=self.limpiar_filtro_busqueda, bd=0, padx=8, pady=2, cursor="hand2").pack(side="left", padx=5)
         
-        self.lbl_indicador_busqueda = tk.Label(self.frame_busqueda, text="(Doble clic en un registro para editar)", font=("Segoe UI", 8, "bold"))
+        self.lbl_indicador_busqueda = tk.Label(self.frame_busqueda, text="(Doble clic para editar / Clic derecho para opciones)", font=("Segoe UI", 8, "bold"))
         self.lbl_indicador_busqueda.pack(side="right")
 
-    # --- TABLA DE DATOS ---
+    # --- TABLA DE DATOS Y MENÚ CONTEXTUAL ---
     def crear_tabla(self):
         self.frame_tabla = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
         self.frame_tabla.grid(row=4, column=0, sticky="nsew", padx=15, pady=4)
@@ -480,11 +480,41 @@ class InventarioBienesApp:
         self.tabla.column("proximo_mant", width=145, minwidth=135, anchor="center", stretch=False)
         
         self.tabla.bind("<Double-1>", self.cargar_seleccion_para_editar)
+        self.tabla.bind("<Button-3>", self.mostrar_menu_contextual) # Clic derecho en Windows/Linux
+        self.tabla.bind("<Button-2>", self.mostrar_menu_contextual) # Clic derecho en macOS
+        
         scrollbar = ttk.Scrollbar(self.frame_tabla, orient="vertical", command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=scrollbar.set)
         
         self.tabla.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
+
+    def crear_menu_contextual(self):
+        """Crea el menú desplegable que aparece al presionar el clic derecho."""
+        self.menu_contextual = tk.Menu(self.root, tearoff=0, font=("Segoe UI", 9))
+        
+        self.menu_contextual.add_command(
+            label="✏️ Editar Activo",
+            command=self.cargar_seleccion_para_editar
+        )
+        self.menu_contextual.add_separator()
+        
+        # Opción en letras rojas
+        self.menu_contextual.add_command(
+            label="❌ Dar de Baja / Generar Acta PDF",
+            command=self.dar_de_baja_bien,
+            foreground="#dc2626",
+            activeforeground="#ffffff",
+            activebackground="#dc2626"
+        )
+
+    def mostrar_menu_contextual(self, event):
+        """Selecciona la fila bajo el cursor y muestra el menú en esa posición."""
+        item = self.tabla.identify_row(event.y)
+        if item:
+            self.tabla.selection_set(item)
+            self.tabla.focus(item)
+            self.menu_contextual.post(event.x_root, event.y_root)
 
     # --- ACCIONES ---
     def crear_panel_acciones(self):
@@ -492,7 +522,6 @@ class InventarioBienesApp:
         self.frame_acciones.grid(row=5, column=0, sticky="ew", padx=15, pady=(4, 10))
         
         tk.Button(self.frame_acciones, text="Cargar Seleccionado para Editar", bg="#D97706", fg="white", font=("Segoe UI", 8, "bold"), command=self.cargar_seleccion_para_editar, bd=0, padx=12, pady=5, cursor="hand2").pack(side="left", padx=(0, 10))
-        tk.Button(self.frame_acciones, text="Dar de Baja / Generar Acta PDF", bg="#DC2626", fg="white", font=("Segoe UI", 8, "bold"), command=self.dar_de_baja_bien, bd=0, padx=12, pady=5, cursor="hand2").pack(side="left", padx=(0, 10))
         tk.Button(self.frame_acciones, text="☁️ Respaldo en Nube (Próximamente)", bg="#0284C7", fg="white", font=("Segoe UI", 8, "bold"), command=self.respaldar_en_nube_placeholder, bd=0, padx=12, pady=5, cursor="hand2").pack(side="left")
         
         self.lbl_info_pie = tk.Label(self.frame_acciones, text="SIGAR V2.5 — UNELLEZ", font=("Segoe UI", 8, "bold"))
