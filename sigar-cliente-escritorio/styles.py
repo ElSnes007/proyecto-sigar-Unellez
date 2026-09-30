@@ -10,7 +10,9 @@ FONT_TITLE = ("Segoe UI", 10, "bold")
 FONT_LABEL = ("Segoe UI", 9)
 FONT_BOLD = ("Segoe UI", 9, "bold")
 FONT_KPI_VAL = ("Segoe UI", 20, "bold")
-FONT_KPI_TIT = ("Segoe UI", 8, "bold")
+FONT_KPI_TIT = ("Segoe UI", 15, "bold")
+
+ARCHIVO_PREFERENCIAS = os.path.join(os.path.dirname(os.path.abspath(__file__)), "config_app.json")
 
 PALETA = {
     "claro": {
@@ -63,30 +65,86 @@ PALETA = {
 
 
 def cargar_preferencia_tema():
-    if os.path.exists(CONFIG_FILE):
+    if os.path.exists(ARCHIVO_PREFERENCIAS):
         try:
-            with open(CONFIG_FILE, "r", encoding="utf-8") as f:
-                return json.load(f).get("tema", "oscuro")
+            with open(ARCHIVO_PREFERENCIAS, 'r', encoding='utf-8') as f:
+                data = json.load(f)
+                return data.get("tema", "claro")
         except Exception:
-            return "oscuro"
-    return "oscuro"
-
+            return "claro"
+    return "claro"
 
 def guardar_preferencia_tema(modo):
     try:
-        with open(CONFIG_FILE, "w", encoding="utf-8") as f:
-            json.dump({"tema": modo}, f, indent=4)
+        data = {}
+        if os.path.exists(ARCHIVO_PREFERENCIAS):
+            try:
+                with open(ARCHIVO_PREFERENCIAS, 'r', encoding='utf-8') as f:
+                    data = json.load(f)
+            except Exception:
+                data = {}
+        data["tema"] = modo
+        with open(ARCHIVO_PREFERENCIAS, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
     except Exception as e:
-        print(f"Error al guardar tema: {e}")
+        print(f"Error guardando preferencia de tema: {e}")
 
+FONT_LABEL = ("Segoe UI", 9)
+FONT_BOLD = ("Segoe UI", 9, "bold")
+FONT_KPI_VAL = ("Segoe UI", 20, "bold")
+FONT_KPI_TIT = ("Segoe UI", 8, "bold")
+
+PALETA = {
+    "claro": {
+        "bg_root": "#f8fafc",
+        "bg_panel": "#ffffff",
+        "fg_texto": "#1e293b",
+        "fg_subtexto": "#64748b",
+        "border_panel": "#cbd5e1",
+        "entry_bg": "#ffffff",
+        "entry_fg": "#0f172a",
+        "entry_border": "#94a3b8",
+        "tree_bg": "#ffffff",
+        "tree_fg": "#0f172a",
+        "tree_head_bg": "#002B49",
+        "tree_head_fg": "#ffffff",
+        "kpis": [
+            {"bg": "#ffffff", "active_bg": "#f1f5f9", "border": "#cbd5e1", "active_border": "#334155", "text": "#334155", "val": "#0f172a", "sub": "#64748b"},
+            {"bg": "#f0fdf4", "active_bg": "#dcfce7", "border": "#bbf7d0", "active_border": "#15803d", "text": "#15803d", "val": "#166534", "sub": "#166534"},
+            {"bg": "#f0f9ff", "active_bg": "#e0f2fe", "border": "#bae6fd", "active_border": "#0284c7", "text": "#0369a1", "val": "#075985", "sub": "#0369a1"},
+            {"bg": "#fffbeb", "active_bg": "#fef3c7", "border": "#fde68a", "active_border": "#d97706", "text": "#b45309", "val": "#92400e", "sub": "#b45309"},
+            {"bg": "#fef2f2", "active_bg": "#fee2e2", "border": "#fecaca", "active_border": "#dc2626", "text": "#b91c1c", "val": "#991b1b", "sub": "#b91c1c"}
+        ]
+    },
+    "oscuro": {
+        "bg_root": "#0f172a",
+        "bg_panel": "#1e293b",
+        "fg_texto": "#f8fafc",
+        "fg_subtexto": "#94a3b8",
+        "border_panel": "#334155",
+        "entry_bg": "#090d16",
+        "entry_fg": "#f8fafc",
+        "entry_border": "#475569",
+        "tree_bg": "#1e293b",
+        "tree_fg": "#f8fafc",
+        "tree_head_bg": "#001f35",
+        "tree_head_fg": "#ffffff",
+        "kpis": [
+            {"bg": "#1e293b", "active_bg": "#334155", "border": "#334155", "active_border": "#94a3b8", "text": "#cbd5e1", "val": "#ffffff", "sub": "#94a3b8"},
+            {"bg": "#064e3b", "active_bg": "#047857", "border": "#047857", "active_border": "#34d399", "text": "#6ee7b7", "val": "#ffffff", "sub": "#a7f3d0"},
+            {"bg": "#0c4a6e", "active_bg": "#0369a1", "border": "#0369a1", "active_border": "#38bdf8", "text": "#7dd3fc", "val": "#ffffff", "sub": "#bae6fd"},
+            {"bg": "#78350f", "active_bg": "#b45309", "border": "#b45309", "active_border": "#fbbf24", "text": "#fde047", "val": "#ffffff", "sub": "#fef08a"},
+            {"bg": "#7f1d1d", "active_bg": "#b91c1c", "border": "#b91c1c", "active_border": "#f87171", "text": "#fca5a5", "val": "#ffffff", "sub": "#fecaca"}
+        ]
+    }
+}
 
 def hex_a_rgb(hex_str):
     hex_str = hex_str.lstrip('#')
     return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
 
-
-def rgb_a_hex(rgb):
-    return '#{:02x}{:02x}{:02x}'.format(*rgb)
+def rgb_a_hex(rgb_tuple):
+    return '#{:02x}{:02x}{:02x}'.format(*rgb_tuple)
 
 
 class CustomScrollbar(tk.Canvas):

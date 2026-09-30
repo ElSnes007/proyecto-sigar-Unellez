@@ -3,8 +3,11 @@ import os
 import json
 from tkinter import messagebox
 
-ARCHIVO_BIENES = "bienes.json"
-ARCHIVO_BAJAS = "bienes_bajas.json"
+# Obtiene la carpeta exacta donde vive database.py (sigar-cliente-escritorio)
+DIR_ACTUAL = os.path.dirname(os.path.abspath(__file__))
+ARCHIVO_BIENES = os.path.join(DIR_ACTUAL,"bienes.json") 
+ARCHIVO_BAJAS = os.path.join(DIR_ACTUAL, "bajas.json")
+ARCHIVO_CONFIG = os.path.join(DIR_ACTUAL, "config.json")
 URL_RESPALDO_CLOUD = "https://sigar-unellez.onrender.com/api/respaldo"
 
 

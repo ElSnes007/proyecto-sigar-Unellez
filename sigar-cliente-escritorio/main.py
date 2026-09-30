@@ -3,7 +3,7 @@ import os
 import sys
 from datetime import datetime, date
 import tkinter as tk
-from tkinter import ttk, messagebox, simpledialog
+from tkinter import ttk, messagebox, simpledialog, filedialog
 
 # Registrar la subcarpeta en sys.path para importar styles, utils y database
 DIR_ACTUAL = os.path.dirname(os.path.abspath(__file__))
@@ -36,9 +36,11 @@ class InventarioBienesApp:
         self.root.title("SIGAR (UNELLEZ) - Sistema de Inventario Local y Gestión de Activos")
         self.root.geometry("1024x680")
         self.root.minsize(800, 500)
+
         
         self.modo_actual = cargar_preferencia_tema()
         self.modo_oscuro = (self.modo_actual == "oscuro")
+        self.filtro_metrica_activa = "TODOS"  # Estado del filtro por KPI
 
         try:
             self.root.state('zoomed')
@@ -70,7 +72,7 @@ class InventarioBienesApp:
         self.crear_formulario()
         self.crear_panel_busqueda()
         self.crear_tabla()
-        self.crear_menu_contextual() # Menú emergente al hacer clic derecho
+        self.crear_menu_contextual()
         self.crear_panel_acciones()
         
         # Aplicar tema
@@ -127,13 +129,15 @@ class InventarioBienesApp:
         if os.path.exists(PATH_LEMA):
             try:
                 img_lema_pil = Image.open(PATH_LEMA).convert("RGBA")
-                datas = img_lema_pil.getdata()
-                new_data = []
-                for item in datas:
-                    if item[0] > 230 and item[1] > 230 and item[2] > 230:
-                        new_data.append((255, 255, 255, 0))
-                    else:
-                        new_data.append(item)
+                if hasattr(img_lema_pil, "get_flattened_data"):
+                    pixels = list(img_lema_pil.get_flattened_data())
+                else:
+                    pixels = list(img_lema_pil.getdata())
+
+                new_data = [
+                    (255, 255, 255, 0) if item[0] > 230 and item[1] > 230 and item[2] > 230 else item
+                    for item in pixels
+                ]
                 img_lema_pil.putdata(new_data)
 
                 bbox = img_lema_pil.getbbox()
@@ -243,26 +247,8 @@ class InventarioBienesApp:
         if hasattr(self, 'lbl_icon_buscar'):
             self.lbl_icon_buscar.config(bg=pal["bg_root"], fg=pal["fg_texto"], font=FONT_LABEL)
 
-        for i, card_info in enumerate(getattr(self, 'tarjetas_widgets', [])):
-            cfg = pal["kpis"][i]
-            bg_tarjeta = cfg["bg"]
-            color_texto_acento = cfg["text"]
-
-            card_info["card"].config(bg=bg_tarjeta, highlightbackground=cfg["border"])
-            card_info["strip"].config(bg=cfg["border"])
-            card_info["content"].config(bg=bg_tarjeta)
-
-            if "top_frame" in card_info: card_info["top_frame"].config(bg=bg_tarjeta)
-            if "left_col" in card_info: card_info["left_col"].config(bg=bg_tarjeta)
-            if "right_col" in card_info: card_info["right_col"].config(bg=bg_tarjeta)
-            card_info["head"].config(bg=bg_tarjeta)
-
-            if "linea" in card_info: card_info["linea"].config(bg=color_texto_acento)
-
-            card_info["tit"].config(bg=bg_tarjeta, fg=color_texto_acento, font=FONT_KPI_TIT)
-            card_info["sub"].config(bg=bg_tarjeta, fg=cfg["sub"], font=FONT_LABEL)
-            card_info["icon"].config(bg=bg_tarjeta, fg=color_texto_acento)
-            card_info["val"].config(bg=bg_tarjeta, fg=cfg["val"], font=FONT_KPI_VAL)
+        # Renderizar estado de tarjetas KPI (con efecto de selección si corresponde)
+        self.actualizar_estilo_tarjetas_kpi()
 
         if hasattr(self, 'tabla'):
             tree_bg_even = pal["tree_bg"] if not self.modo_oscuro else "#1e293b"
@@ -282,6 +268,59 @@ class InventarioBienesApp:
             self.tabla.tag_configure("par", background=tree_bg_even, foreground=pal["tree_fg"])
             self.tabla.tag_configure("impar", background=tree_bg_odd, foreground=pal["tree_fg"])
 
+    def actualizar_estilo_tarjetas_kpi(self):
+        t = "oscuro" if self.modo_oscuro else "claro"
+        pal = self.PALETA[t]
+
+        for i, card_info in enumerate(getattr(self, 'tarjetas_widgets', [])):
+            cfg = pal["kpis"][i]
+            clave_kpi = card_info["clave"]
+            titulo_base = card_info["titulo_original"]
+            color_acento = cfg["text"]
+
+            # Evaluación de estado activo
+            esta_activa = (self.filtro_metrica_activa == clave_kpi and clave_kpi != "TODOS")
+
+            # Colores dinámicos para simular brillo / iluminación interna
+            bg_tarjeta = cfg["active_bg"] if esta_activa else cfg["bg"]
+            borde_color = cfg["active_border"] if esta_activa else cfg["border"]
+            
+            # --- OPCIÓN 2: Ajuste de borde y padding compensatorio ---
+            grosor_borde = 3 if esta_activa else 1
+            padx_comp = 6 if esta_activa else 8  # Restamos 2px por los lados
+            pady_comp = 4 if esta_activa else 6  # Restamos 2px por arriba/abajo
+
+            # Texto del título dinámico
+            texto_titulo = f"✓ {titulo_base}" if esta_activa else titulo_base
+
+            card_info["card"].config(
+                bg=bg_tarjeta,
+                highlightbackground=borde_color,
+                highlightcolor=borde_color,
+                highlightthickness=grosor_borde
+            )
+            card_info["strip"].config(bg=color_acento if not esta_activa else borde_color)
+            
+            # Aplicamos el padding compensatorio al marco interno de contenido
+            card_info["content"].config(
+                bg=bg_tarjeta,
+                padx=padx_comp,
+                pady=pady_comp
+            )
+
+            if "top_frame" in card_info: card_info["top_frame"].config(bg=bg_tarjeta)
+            if "left_col" in card_info: card_info["left_col"].config(bg=bg_tarjeta)
+            if "right_col" in card_info: card_info["right_col"].config(bg=bg_tarjeta)
+            card_info["head"].config(bg=bg_tarjeta)
+
+            if "linea" in card_info: card_info["linea"].config(bg=borde_color if esta_activa else color_acento)
+
+            card_info["tit"].config(text=texto_titulo, bg=bg_tarjeta, fg=borde_color if esta_activa else color_acento, font=FONT_KPI_TIT)
+            card_info["sub"].config(bg=bg_tarjeta, fg=cfg["sub"], font=FONT_LABEL)
+            card_info["icon"].config(bg=bg_tarjeta, fg=borde_color if esta_activa else color_acento)
+            card_info["val"].config(bg=bg_tarjeta, fg=cfg["val"], font=FONT_KPI_VAL)
+                  
+
     # --- TARJETAS MÉTRICAS ---
     def crear_panel_metricas(self):
         self.frame_kpis = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
@@ -292,65 +331,87 @@ class InventarioBienesApp:
 
         self.tarjetas_widgets = []
         metricas = [
-            ("TOTAL ACTIVOS", "0", "Bienes registrados", "📋"),
-            ("OPERATIVOS", "0", "En servicio activo", "🟢"),
-            ("PREVENTIVOS", "0", "Ciclo regular (+3M)", "🔧"),
-            ("CORRECTIVOS", "0", "Ajuste / Reparación", "⚠️"),
-            ("DESINCORPORADOS", "0", "Actas emitidas", "❌")
+            ("TOTAL ACTIVOS", "0", "Bienes registrados", "📋", "TODOS"),
+            ("OPERATIVOS", "0", "En servicio activo", "🟢", "OPERATIVOS"),
+            ("PREVENTIVOS", "0", "Ciclo regular (+3M)", "🔧", "PREVENTIVOS"),
+            ("CORRECTIVOS", "0", "Ajuste / Reparación", "⚠️", "CORRECTIVOS"),
+            ("DESINCORPORADOS", "0", "Actas emitidas", "❌", "DESINCORPORADOS")
         ]
 
-        for col, (titulo, valor, sub, icono) in enumerate(metricas):
-            val_widget = self.crear_tarjeta(col, titulo, valor, sub, icono)
+        for col, (titulo, valor, sub, icono, clave) in enumerate(metricas):
+            val_widget = self.crear_tarjeta(col, titulo, valor, sub, icono, clave)
             if col == 0: self.lbl_val_total = val_widget
             elif col == 1: self.lbl_val_operativos = val_widget
             elif col == 2: self.lbl_val_preventivos = val_widget
             elif col == 3: self.lbl_val_correctivos = val_widget
             elif col == 4: self.lbl_val_desincorporados = val_widget
+            
 
-    def crear_tarjeta(self, col, titulo, valor_inicial, subtitulo, icono="📊", color_acento="#1E3A8A"):
-        card = tk.Frame(self.frame_kpis, bd=0, highlightthickness=1)
+    
+
+
+    def crear_tarjeta(self, col, titulo, valor_inicial, subtitulo, icono="📊", clave="TODOS", color_acento="#1E3A8A"):
+        card = tk.Frame(self.frame_kpis, bd=0, highlightthickness=1, cursor="hand2")
         card.grid(row=0, column=col, sticky="nsew", padx=4)
 
-        strip = tk.Frame(card, width=4, bg=color_acento, bd=0, highlightthickness=0)
+        strip = tk.Frame(card, width=4, bg=color_acento, bd=0, highlightthickness=0, cursor="hand2")
         strip.pack(side="left", fill="y")
 
-        content = tk.Frame(card, bd=0, highlightthickness=0)
+        content = tk.Frame(card, bd=0, highlightthickness=0, cursor="hand2")
         content.pack(side="left", fill="both", expand=True, padx=8, pady=6)
 
-        top_frame = tk.Frame(content, bd=0, highlightthickness=0)
+        top_frame = tk.Frame(content, bd=0, highlightthickness=0, cursor="hand2")
         top_frame.pack(fill="x")
 
-        lbl_tit = tk.Label(top_frame, text=titulo, font=("Segoe UI", 8, "bold"), fg=color_acento, anchor="w")
+        lbl_tit = tk.Label(top_frame, text=titulo, font=("Segoe UI", 8, "bold"), fg=color_acento, anchor="w", cursor="hand2")
         lbl_tit.pack(fill="x")
 
-        linea_div = tk.Frame(top_frame, height=2, bg=color_acento, bd=0, highlightthickness=0)
+        linea_div = tk.Frame(top_frame, height=2, bg=color_acento, bd=0, highlightthickness=0, cursor="hand2")
         linea_div.pack(fill="x", pady=(2, 6))
 
-        body_frame = tk.Frame(content, bd=0, highlightthickness=0)
+        body_frame = tk.Frame(content, bd=0, highlightthickness=0, cursor="hand2")
         body_frame.pack(fill="both", expand=True)
 
-        left_col = tk.Frame(body_frame, bd=0, highlightthickness=0)
+        left_col = tk.Frame(body_frame, bd=0, highlightthickness=0, cursor="hand2")
         left_col.pack(side="left", fill="both", expand=True)
 
-        lbl_val = tk.Label(left_col, text=valor_inicial, font=("Segoe UI", 18, "bold"), anchor="w")
+        lbl_val = tk.Label(left_col, text=valor_inicial, font=("Segoe UI", 18, "bold"), anchor="w", cursor="hand2")
         lbl_val.pack(fill="x")
 
-        lbl_sub = tk.Label(left_col, text=subtitulo, font=("Segoe UI", 8), fg=color_acento, anchor="w")
+        lbl_sub = tk.Label(left_col, text=subtitulo, font=("Segoe UI", 8), fg=color_acento, anchor="w", cursor="hand2")
         lbl_sub.pack(fill="x")
 
-        right_col = tk.Frame(body_frame, width=35, bd=0, highlightthickness=0)
+        right_col = tk.Frame(body_frame, width=35, bd=0, highlightthickness=0, cursor="hand2")
         right_col.pack_propagate(False)
         right_col.pack(side="right", fill="y")
 
-        lbl_icon = tk.Label(right_col, text=icono, font=("Segoe UI", 16), fg=color_acento, anchor="e")
+        lbl_icon = tk.Label(right_col, text=icono, font=("Segoe UI", 16), fg=color_acento, anchor="e", cursor="hand2")
         lbl_icon.pack(expand=True, fill="both")
+
+        # Vincular evento de clic en todos los componentes de la tarjeta
+        elementos_clic = [card, strip, content, top_frame, lbl_tit, linea_div, body_frame, left_col, lbl_val, lbl_sub, right_col, lbl_icon]
+        for elem in elementos_clic:
+            elem.bind("<Button-1>", lambda event, c=clave: self.filtrar_por_metrica(c))
 
         self.tarjetas_widgets.append({
             "card": card, "strip": strip, "content": content, "top_frame": top_frame,
             "linea": linea_div, "head": body_frame, "left_col": left_col, "right_col": right_col,
-            "tit": lbl_tit, "icon": lbl_icon, "val": lbl_val, "sub": lbl_sub, "acento": color_acento
+            "tit": lbl_tit, "icon": lbl_icon, "val": lbl_val, "sub": lbl_sub, "acento": color_acento,
+            "clave": clave,
+            "titulo_original": titulo  # <-- Agregar esta línea aquí
         })
         return lbl_val
+
+    def filtrar_por_metrica(self, clave):
+        """Filtra los datos de la tabla al hacer clic en un KPI y cambia el aspecto visual."""
+        if self.filtro_metrica_activa == clave and clave != "TODOS":
+            # Si se hace clic en el mismo filtro activo, vuelve a mostrar todos
+            self.filtro_metrica_activa = "TODOS"
+        else:
+            self.filtro_metrica_activa = clave
+
+        self.actualizar_estilo_tarjetas_kpi()
+        self.filtrar_tabla()
 
     def actualizar_metricas(self):
         total = len(self.bienes)
@@ -462,6 +523,7 @@ class InventarioBienesApp:
         self.frame_tabla.grid(row=4, column=0, sticky="nsew", padx=15, pady=4)
         self.frame_tabla.rowconfigure(0, weight=1)
         self.frame_tabla.columnconfigure(0, weight=1)
+
         
         columnas = ("id", "nombre", "asignado_a", "mantenimiento", "fecha_mant", "proximo_mant")
         self.tabla = ttk.Treeview(self.frame_tabla, columns=columnas, show="headings")
@@ -480,17 +542,17 @@ class InventarioBienesApp:
         self.tabla.column("proximo_mant", width=145, minwidth=135, anchor="center", stretch=False)
         
         self.tabla.bind("<Double-1>", self.cargar_seleccion_para_editar)
-        self.tabla.bind("<Button-3>", self.mostrar_menu_contextual) # Clic derecho en Windows/Linux
-        self.tabla.bind("<Button-2>", self.mostrar_menu_contextual) # Clic derecho en macOS
+        self.tabla.bind("<Button-3>", self.mostrar_menu_contextual)
+        self.tabla.bind("<Button-2>", self.mostrar_menu_contextual)
         
         scrollbar = ttk.Scrollbar(self.frame_tabla, orient="vertical", command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=scrollbar.set)
         
         self.tabla.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
+            
 
     def crear_menu_contextual(self):
-        """Crea el menú desplegable que aparece al presionar el clic derecho."""
         self.menu_contextual = tk.Menu(self.root, tearoff=0, font=("Segoe UI", 9))
         
         self.menu_contextual.add_command(
@@ -499,7 +561,6 @@ class InventarioBienesApp:
         )
         self.menu_contextual.add_separator()
         
-        # Opción en letras rojas
         self.menu_contextual.add_command(
             label="❌ Dar de Baja / Generar Acta PDF",
             command=self.dar_de_baja_bien,
@@ -509,23 +570,160 @@ class InventarioBienesApp:
         )
 
     def mostrar_menu_contextual(self, event):
-        """Selecciona la fila bajo el cursor y muestra el menú en esa posición."""
         item = self.tabla.identify_row(event.y)
         if item:
             self.tabla.selection_set(item)
             self.tabla.focus(item)
             self.menu_contextual.post(event.x_root, event.y_root)
 
-    # --- ACCIONES ---
+    # --- ACCIONES / PANEL INFERIOR ---
     def crear_panel_acciones(self):
         self.frame_acciones = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
         self.frame_acciones.grid(row=5, column=0, sticky="ew", padx=15, pady=(4, 10))
         
-        tk.Button(self.frame_acciones, text="Cargar Seleccionado para Editar", bg="#D97706", fg="white", font=("Segoe UI", 8, "bold"), command=self.cargar_seleccion_para_editar, bd=0, padx=12, pady=5, cursor="hand2").pack(side="left", padx=(0, 10))
-        tk.Button(self.frame_acciones, text="☁️ Respaldo en Nube (Próximamente)", bg="#0284C7", fg="white", font=("Segoe UI", 8, "bold"), command=self.respaldar_en_nube_placeholder, bd=0, padx=12, pady=5, cursor="hand2").pack(side="left")
+        tk.Button(
+            self.frame_acciones, 
+            text="☁️ Centro de Respaldos", 
+            bg="#0284C7", 
+            fg="white", 
+            activebackground="#0369a1",
+            activeforeground="white",
+            font=("Segoe UI", 8, "bold"), 
+            command=self.abrir_ventana_respaldos, 
+            bd=0, 
+            padx=14, 
+            pady=6, 
+            cursor="hand2"
+        ).pack(side="left")
         
         self.lbl_info_pie = tk.Label(self.frame_acciones, text="SIGAR V2.5 — UNELLEZ", font=("Segoe UI", 8, "bold"))
         self.lbl_info_pie.pack(side="right", pady=3)
+
+    # --- VENTANA EMERGENTE DE RESPALDOS ---
+    def abrir_ventana_respaldos(self):
+        t = "oscuro" if self.modo_oscuro else "claro"
+        pal = self.PALETA[t]
+
+        modal = tk.Toplevel(self.root)
+        modal.title("Gestión y Centro de Respaldos")
+        modal.geometry("420x280")
+        modal.resizable(False, False)
+        modal.configure(bg=pal["bg_root"])
+        modal.transient(self.root)
+        modal.grab_set()
+
+        modal.update_idletasks()
+        w = modal.winfo_width()
+        h = modal.winfo_height()
+        x = (modal.winfo_screenwidth() // 2) - (w // 2)
+        y = (modal.winfo_screenheight() // 2) - (h // 2)
+        modal.geometry(f"{w}x{h}+{x}+{y}")
+
+        lbl_titulo = tk.Label(
+            modal, 
+            text="☁️ Sincronización y Respaldos", 
+            font=("Segoe UI", 12, "bold"), 
+            fg=pal["fg_texto"], 
+            bg=pal["bg_root"]
+        )
+        lbl_titulo.pack(pady=(15, 5))
+
+        lbl_sub = tk.Label(
+            modal, 
+            text="Seleccione la acción de respaldo que desea ejecutar:", 
+            font=("Segoe UI", 8), 
+            fg=pal["fg_subtexto"], 
+            bg=pal["bg_root"]
+        )
+        lbl_sub.pack(pady=(0, 15))
+
+        frame_botones = tk.Frame(modal, bg=pal["bg_root"])
+        frame_botones.pack(fill="both", expand=True, padx=25, pady=5)
+
+        btn_nube = tk.Button(
+            frame_botones,
+            text="☁️ Exportar / Guardar Respaldo en la Nube",
+            bg="#0284C7",
+            fg="white",
+            activebackground="#0369a1",
+            activeforeground="white",
+            font=("Segoe UI", 9, "bold"),
+            bd=0,
+            pady=8,
+            cursor="hand2",
+            command=lambda: self.accion_guardar_nube(modal)
+        )
+        btn_nube.pack(fill="x", pady=4)
+
+        btn_importar = tk.Button(
+            frame_botones,
+            text="📥 Importar / Restaurar desde la Nube",
+            bg="#0D9488",
+            fg="white",
+            activebackground="#0F766E",
+            activeforeground="white",
+            font=("Segoe UI", 9, "bold"),
+            bd=0,
+            pady=8,
+            cursor="hand2",
+            command=lambda: self.accion_importar_nube(modal)
+        )
+        btn_importar.pack(fill="x", pady=4)
+
+        btn_local = tk.Button(
+            frame_botones,
+            text="💾 Guardar Respaldo Local (Copiar JSON)",
+            bg="#475569",
+            fg="white",
+            activebackground="#334155",
+            activeforeground="white",
+            font=("Segoe UI", 9, "bold"),
+            bd=0,
+            pady=8,
+            cursor="hand2",
+            command=lambda: self.accion_guardar_local(modal)
+        )
+        btn_local.pack(fill="x", pady=4)
+
+    # --- ACCIONES FRONTEND DE RESPALDO ---
+    def accion_guardar_nube(self, modal):
+        if not HAS_REQUESTS:
+            messagebox.showinfo("Librería Pendiente", "Se requiere la librería 'requests' instalada para enviar datos a la API.", parent=modal)
+            return
+
+        messagebox.showinfo(
+            "Conexión Backend", 
+            f"Frontend preparado para enviar datos al servidor API:\n\nEndpoint: {URL_RESPALDO_CLOUD}\n\nEstructura JSON lista.", 
+            parent=modal
+        )
+
+    def accion_importar_nube(self, modal):
+        if not HAS_REQUESTS:
+            messagebox.showinfo("Librería Pendiente", "Se requiere la librería 'requests' instalada para recibir datos de la API.", parent=modal)
+            return
+
+        messagebox.showinfo(
+            "Conexión Backend", 
+            f"Frontend preparado para consultar e importar datos desde la API:\n\nEndpoint: {URL_RESPALDO_CLOUD}", 
+            parent=modal
+        )
+
+    def accion_guardar_local(self, modal):
+        try:
+            filename = filedialog.asksaveasfilename(
+                parent=modal,
+                title="Guardar Respaldo Local",
+                defaultextension=".json",
+                filetypes=[("Archivos JSON", "*.json"), ("Todos los archivos", "*.*")],
+                initialfile=f"respaldo_sigar_{date.today().strftime('%Y%m%d')}.json"
+            )
+            if filename:
+                import json
+                with open(filename, 'w', encoding='utf-8') as f:
+                    json.dump(self.bienes, f, ensure_ascii=False, indent=4)
+                messagebox.showinfo("Respaldo Guardado", f"El respaldo local ha sido guardado exitosamente en:\n{filename}", parent=modal)
+        except Exception as e:
+            messagebox.showerror("Error", f"No se pudo guardar el respaldo local: {e}", parent=modal)
 
     # --- LÓGICA CRUD Y OPERACIONES ---
     def agregar_bien(self):
@@ -653,12 +851,6 @@ class InventarioBienesApp:
             self.limpiar_formulario()
             messagebox.showinfo("Baja Procesada", f"El activo ID {id_bien} ha sido desincorporado.\n📄 Documento: {archivo_generado}")
 
-    def respaldar_en_nube_placeholder(self):
-        if not HAS_REQUESTS:
-            messagebox.showinfo("Respaldo en Nube", "Instale 'requests' para activar esta función (pip install requests).")
-            return
-        messagebox.showinfo("Módulo de Respaldo", f"Esta función enviará bienes.json a {URL_RESPALDO_CLOUD}.")
-
     # --- FILTRADO Y NAVEGACIÓN ---
     def filtrar_tabla(self, event=None):
         criterio = self.entry_buscar.get().strip().lower()
@@ -671,7 +863,23 @@ class InventarioBienesApp:
             nombre_str = str(bien["nombre"]).lower()
             asignado_str = str(bien.get("asignado_a", "")).lower()
             desc_str = str(bien.get("desc_mant", "")).lower()
+            mant_str = str(bien.get("mantenimiento", "")).strip()
 
+            # 1. Filtro por Métrica/KPI seleccionada
+            cumple_metrica = True
+            if self.filtro_metrica_activa == "OPERATIVOS":
+                cumple_metrica = (mant_str == "No")
+            elif self.filtro_metrica_activa == "PREVENTIVOS":
+                cumple_metrica = ("Preventivo" in mant_str)
+            elif self.filtro_metrica_activa == "CORRECTIVOS":
+                cumple_metrica = ("Correctivo" in mant_str)
+            elif self.filtro_metrica_activa == "DESINCORPORADOS":
+                cumple_metrica = False  # Los desincorporados se guardan aparte en bajas
+
+            if not cumple_metrica:
+                continue
+
+            # 2. Filtro de búsqueda por texto
             if criterio in id_str or criterio in nombre_str or criterio in asignado_str or criterio in desc_str:
                 tag_fila = "par" if i % 2 == 0 else "impar"
                 self.tabla.insert("", "end", values=(
@@ -682,6 +890,8 @@ class InventarioBienesApp:
 
     def limpiar_filtro_busqueda(self):
         self.entry_buscar.delete(0, tk.END)
+        self.filtro_metrica_activa = "TODOS"
+        self.actualizar_estilo_tarjetas_kpi()
         self.actualizar_tabla()
 
     def cargar_seleccion_para_editar(self, event=None):
@@ -737,15 +947,7 @@ class InventarioBienesApp:
         return None
 
     def actualizar_tabla(self):
-        for item in self.tabla.get_children():
-            self.tabla.delete(item)
-        
-        for i, bien in enumerate(getattr(self, 'bienes', [])):
-            tag_fila = "par" if i % 2 == 0 else "impar"
-            self.tabla.insert("", "end", values=(
-                bien["id"], bien["nombre"], bien.get("asignado_a", "N/A"),
-                bien.get("mantenimiento", "No"), bien.get("fecha_mant", "N/A"), bien.get("proximo_mant", "N/A")
-            ), tags=(tag_fila,))
+        self.filtrar_tabla()
 
 
 if __name__ == "__main__":
