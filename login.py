@@ -2,17 +2,15 @@
 import json
 import os
 import hashlib
+import subprocess
+import sys
 import tkinter as tk
-from tkinter import ttk
 from PIL import Image, ImageTk, ImageDraw
 
-# Importar la aplicación principal del inventario
-try:
-    from app_inventario import InventarioBienesApp
-except ImportError:
-    InventarioBienesApp = None
-
-DB_ACCESO = "acceso.json"
+BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+DB_ACCESO = os.path.join(BASE_DIR, "acceso.json")
+SCRIPT_MAIN = os.path.join(BASE_DIR, "sigar-cliente-escritorio", "main.py")
+ICONO_PATH = os.path.join(BASE_DIR, "app_icon.ico")
 
 class AuthApp:
     def __init__(self, root):
@@ -22,9 +20,22 @@ class AuthApp:
         self.root.resizable(False, False)
         self.root.configure(bg="#0b1329")
 
-        self.clave_hash = self.cargar_clave()
+        # Establecer el icono de la ventana si existe el archivo .ico
+        if os.path.exists(ICONO_PATH):
+            try:
+                self.root.iconbitmap(ICONO_PATH)
+            except Exception:
+                pass
 
-        # Construcción de la interfaz
+        # Centrar la ventana en pantalla
+        self.root.update_idletasks()
+        width = self.root.winfo_width()
+        height = self.root.winfo_height()
+        x = (self.root.winfo_screenwidth() // 2) - (width // 2)
+        y = (self.root.winfo_screenheight() // 2) - (height // 2)
+        self.root.geometry(f"{width}x{height}+{x}+{y}")
+
+        self.clave_hash = self.cargar_clave()
         self.construir_interfaz()
 
     def hash_password(self, password):
@@ -32,7 +43,7 @@ class AuthApp:
         return hashlib.sha256(password.encode('utf-8')).hexdigest()
 
     def cargar_clave(self):
-        """Carga el hash de la contraseña. Si no existe, establece 'admin123' por defecto."""
+        """Carga el hash de la contraseña desde acceso.json en la raíz."""
         if os.path.exists(DB_ACCESO):
             try:
                 with open(DB_ACCESO, 'r', encoding='utf-8') as f:
@@ -56,7 +67,7 @@ class AuthApp:
         main_frame = tk.Frame(self.root, bg="#0b1329")
         main_frame.pack(expand=True, fill="both", padx=30, pady=25)
 
-        # --- LOGO / AVATAR CIRCULAR ---
+        # --- AVATAR CIRCULAR ---
         self.canvas_avatar = tk.Canvas(main_frame, width=120, height=120, bg="#0b1329", highlightthickness=0)
         self.canvas_avatar.pack(pady=(5, 10))
 
@@ -75,8 +86,7 @@ class AuthApp:
         )
         lbl_subtitulo.pack(pady=(0, 15))
 
-        # --- LABEL PARA MENSAJES DE ERROR/ALERTA INTEGRADOS ---
-        # Inicialmente vacío; usa un tono rojo/coral suave (#f87171)
+        # --- MENSAJES DE ERROR INTEGRADOS ---
         self.lbl_error = tk.Label(
             main_frame, 
             text="", 
@@ -107,8 +117,7 @@ class AuthApp:
         )
         self.entry_pass.pack(fill="x", ipady=7, pady=(0, 18))
         self.entry_pass.bind("<Return>", lambda e: self.procesar_login())
-        # Limpia el mensaje de error cuando el usuario empieza a escribir nuevamente
-        self.entry_pass.bind("<Key>", lambda e: self.lbl_error.config(text=""))
+        self.entry_pass.bind("<Key>", lambda e: self.limpiar_error())
 
         # --- BOTÓN DE INGRESO ---
         btn_ingresar = tk.Button(
@@ -126,19 +135,22 @@ class AuthApp:
         )
         btn_ingresar.pack(fill="x")
 
-        # Foco automático en la caja de contraseña
         self.root.after(100, lambda: self.entry_pass.focus_force())
 
-    def cargar_avatar_circular(self):
-        """Busca una imagen del logo y la recorta en círculo; de lo contrario crea un emblema."""
-        size = (110, 110)
-        posibles_rutas = ["logo.png", "icon.png", "unellez_logo.png", "assets/logo.png"]
-        ruta_encontrada = None
+    def limpiar_error(self):
+        self.lbl_error.config(text="")
+        self.entry_pass.config(highlightbackground="#2b3e63")
 
-        for r in posibles_rutas:
-            if os.path.exists(r):
-                ruta_encontrada = r
-                break
+    def cargar_avatar_circular(self):
+        """Carga la nueva imagen del logo y la ajusta de forma circular."""
+        size = (110, 110)
+        posibles_rutas = [
+            os.path.join(BASE_DIR, "upscalemedia-transformed.jpeg"),
+            os.path.join(BASE_DIR, "logo.png"),
+            os.path.join(BASE_DIR, "foto_perfil.png")
+        ]
+        
+        ruta_encontrada = next((r for r in posibles_rutas if os.path.exists(r)), None)
 
         if ruta_encontrada:
             try:
@@ -155,10 +167,10 @@ class AuthApp:
                 self.img_tk = ImageTk.PhotoImage(output)
                 self.canvas_avatar.create_image(60, 60, image=self.img_tk)
                 return
-            except Exception:
-                pass
+            except Exception as e:
+                print(f"Error al procesar imagen de logo: {e}")
 
-        # Avatar circular por defecto
+        # Emblema por defecto en caso de error
         self.canvas_avatar.create_oval(5, 5, 115, 115, fill="#1e293b", outline="#0284c7", width=3)
         self.canvas_avatar.create_text(60, 60, text="SIGAR", fill="#38bdf8", font=("Segoe UI", 16, "bold"))
 
@@ -167,7 +179,7 @@ class AuthApp:
 
         if not password:
             self.lbl_error.config(text="⚠️ Por favor, ingrese la contraseña de acceso.")
-            self.entry_pass.config(highlightbackground="#ef4444")  # Resalta la casilla en rojo suave
+            self.entry_pass.config(highlightbackground="#ef4444")
             return
 
         if self.hash_password(password) == self.clave_hash:
@@ -179,12 +191,9 @@ class AuthApp:
             self.entry_pass.delete(0, tk.END)
 
     def abrir_sistema_principal(self):
-        """Cierra la ventana de login e inicia la pantalla principal."""
+        """Destruye la ventana de Login e inicia main.py."""
         self.root.destroy()
-        main_root = tk.Tk()
-        if InventarioBienesApp:
-            app = InventarioBienesApp(main_root)
-        main_root.mainloop()
+        subprocess.Popen([sys.executable, SCRIPT_MAIN])
 
 if __name__ == "__main__":
     root = tk.Tk()
