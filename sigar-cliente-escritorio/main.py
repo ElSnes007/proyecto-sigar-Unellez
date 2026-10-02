@@ -7,12 +7,13 @@ import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 from login import AuthApp  # Importación directa del módulo
 
+
 def iniciar_sistema():
     root = tk.Tk()
     root.withdraw()  # Ocultar la ventana principal mientras valida credenciales
 
     # Lanzar la ventana de login
-    login_win = AuthApp (root)
+    login_win = AuthApp(root)
 
     # Verificar si el usuario se autenticó correctamente
     if getattr(login_win, "autenticado", False):
@@ -21,6 +22,7 @@ def iniciar_sistema():
         root.mainloop()
     else:
         root.destroy()  # Cerrar si canceló o falló el login
+
 
 def obtener_ruta_base():
     """Obtiene la ruta base adecuada tanto en modo script como empaquetado con PyInstaller."""
@@ -38,6 +40,7 @@ from database import (
     ARCHIVO_BAJAS,
     URL_RESPALDO_CLOUD,
     cargar_datos_locales,
+    cargar_historial_bajas,  # Asegúrate de tener/usar la función de lectura de bajas
     guardar_baja_local,
     guardar_datos_locales,
     obtener_conteo_bajas,
@@ -642,6 +645,11 @@ class InventarioBienesApp:
         return lbl_val
 
     def filtrar_por_metrica(self, clave):
+        # SI HACE CLIC EN LA TARJETA DE DESINCORPORADOS, SE ABRE LA VENTANA EMERGENTE
+        if clave == "DESINCORPORADOS":
+            self.mostrar_ventana_desincorporados()
+            return
+
         if self.filtro_metrica_activa == clave and clave != "TODOS":
             self.filtro_metrica_activa = "TODOS"
         else:
@@ -649,6 +657,91 @@ class InventarioBienesApp:
 
         self.actualizar_estilo_tarjetas_kpi()
         self.filtrar_tabla()
+
+    # --- VENTANA EMERGENTE PARA MOSTRAR EQUIPOS DESINCORPORADOS ---
+    def mostrar_ventana_desincorporados(self):
+        t = "oscuro" if self.modo_oscuro else "claro"
+        pal = self.PALETA[t]
+
+        ventana_bajas = tk.Toplevel(self.root)
+        ventana_bajas.title("SIGAR - Historial de Activos Desincorporados")
+        ventana_bajas.geometry("800x420")
+        ventana_bajas.configure(bg=pal["bg_root"])
+        ventana_bajas.transient(self.root)
+        ventana_bajas.grab_set()
+
+        # Centrar ventana
+        ventana_bajas.update_idletasks()
+        w = ventana_bajas.winfo_width()
+        h = ventana_bajas.winfo_height()
+        x = (ventana_bajas.winfo_screenwidth() // 2) - (w // 2)
+        y = (ventana_bajas.winfo_screenheight() // 2) - (h // 2)
+        ventana_bajas.geometry(f"{w}x{h}+{x}+{y}")
+
+        lbl_titulo = tk.Label(
+            ventana_bajas,
+            text="❌ REGISTRO DE ACTAS DE DESINCORPORACIÓN Y BAJA",
+            font=("Segoe UI", 11, "bold"),
+            fg="#dc2626",
+            bg=pal["bg_root"],
+            pady=10,
+        )
+        lbl_titulo.pack()
+
+        frame_tabla_bajas = tk.Frame(ventana_bajas, bg=pal["bg_root"])
+        frame_tabla_bajas.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+
+        cols = ("id", "nombre", "asignado_a", "fecha_baja", "motivo")
+        tabla_bajas = ttk.Treeview(
+            frame_tabla_bajas, columns=cols, show="headings"
+        )
+
+        tabla_bajas.heading("id", text="ID Activo")
+        tabla_bajas.heading("nombre", text="Descripción / Bien")
+        tabla_bajas.heading("asignado_a", text="Asignación Previa")
+        tabla_bajas.heading("fecha_baja", text="Fecha Procesamiento")
+        tabla_bajas.heading("motivo", text="Motivo / Justificación")
+
+        tabla_bajas.column("id", width=70, anchor="center")
+        tabla_bajas.column("nombre", width=200, anchor="w")
+        tabla_bajas.column("asignado_a", width=140, anchor="w")
+        tabla_bajas.column("fecha_baja", width=130, anchor="center")
+        tabla_bajas.column("motivo", width=220, anchor="w")
+
+        scroll_bajas = ttk.Scrollbar(
+            frame_tabla_bajas, orient="vertical", command=tabla_bajas.yview
+        )
+        tabla_bajas.configure(yscrollcommand=scroll_bajas.set)
+
+        tabla_bajas.pack(side="left", fill="both", expand=True)
+        scroll_bajas.pack(side="right", fill="y")
+
+        # Cargar registros leídos desde bajas.json
+        lista_bajas = cargar_historial_bajas()
+        for i, reg in enumerate(lista_bajas):
+            tag_fila = "par" if i % 2 == 0 else "impar"
+            tabla_bajas.insert(
+                "",
+                "end",
+                values=(
+                    reg.get("id", "N/A"),
+                    reg.get("nombre", "N/A"),
+                    reg.get("asignado_a", "N/A"),
+                    reg.get("fecha_baja", "N/A"),
+                    reg.get("motivo_baja", "Sin justificación"),
+                ),
+                tags=(tag_fila,),
+            )
+
+        if not lista_bajas:
+            lbl_vacio = tk.Label(
+                ventana_bajas,
+                text="No hay actas de desincorporación registradas.",
+                font=("Segoe UI", 9, "italic"),
+                fg=pal["fg_subtexto"],
+                bg=pal["bg_root"],
+            )
+            lbl_vacio.pack(pady=10)
 
     def actualizar_metricas(self):
         total = len(self.bienes)
@@ -830,9 +923,7 @@ class InventarioBienesApp:
             row=3, column=1, columnspan=5, padx=5, pady=4, sticky="ew"
         )
 
-        self.labels_texto.extend(
-            [lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7]
-        )
+        self.labels_texto.extend([lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7])
         self.entries_widgets.extend([
             self.entry_id,
             self.entry_nombre,
@@ -958,7 +1049,9 @@ class InventarioBienesApp:
         scrollbar.grid(row=0, column=1, sticky="ns")
 
     def crear_menu_contextual(self):
-        self.menu_contextual = tk.Menu(self.root, tearoff=0, font=("Segoe UI", 9))
+        self.menu_contextual = tk.Menu(
+            self.root, tearoff=0, font=("Segoe UI", 9)
+        )
 
         self.menu_contextual.add_command(
             label="✏️ Editar Activo", command=self.cargar_seleccion_para_editar
@@ -1371,8 +1464,6 @@ class InventarioBienesApp:
                 cumple_metrica = "Preventivo" in mant_str
             elif self.filtro_metrica_activa == "CORRECTIVOS":
                 cumple_metrica = "Correctivo" in mant_str
-            elif self.filtro_metrica_activa == "DESINCORPORADOS":
-                cumple_metrica = False
 
             if not cumple_metrica:
                 continue
@@ -1470,7 +1561,6 @@ class InventarioBienesApp:
 
 os.chdir(obtener_ruta_base())
 
-# Al final de main.py
 if __name__ == "__main__":
     root = tk.Tk()
     app = InventarioBienesApp(root)

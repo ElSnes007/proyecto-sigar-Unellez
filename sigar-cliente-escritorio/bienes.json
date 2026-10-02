@@ -124,14 +124,5 @@
         "fecha_mant": "N/A",
         "proximo_mant": "N/A",
         "desc_mant": "En servicio activo"
-    },
-    {
-        "id": 15,
-        "nombre": "Disco Duro Externo Adata HD710 Pro 2TB Anti-golpes",
-        "asignado_a": "Coordinación de Sistemas",
-        "mantenimiento": "Sí (Preventivo)",
-        "fecha_mant": "02/09/2026",
-        "proximo_mant": "02/12/2026",
-        "desc_mant": "Análisis S.M.A.R.T. y verificación de sectores"
     }
 ]
