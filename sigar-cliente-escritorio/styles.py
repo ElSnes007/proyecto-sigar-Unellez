@@ -293,7 +293,6 @@ class CustomScrollbar(tk.Canvas):
         y = event.y
         h = self.winfo_height()
         arrow_size = 14
-
         if y < arrow_size + 5:
             if self.command:
                 self.command("scroll", -1, "units")

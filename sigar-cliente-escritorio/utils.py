@@ -8,7 +8,6 @@ from tkinter import messagebox
 # Importaciones opcionales con fallback
 try:
     from PIL import Image, ImageTk
-
     HAS_PIL = True
 except ImportError:
     HAS_PIL = False
@@ -16,14 +15,12 @@ except ImportError:
 try:
     from reportlab.lib.pagesizes import letter
     from reportlab.pdfgen import canvas
-
     HAS_REPORTLAB = True
 except ImportError:
     HAS_REPORTLAB = False
 
 try:
     import requests
-
     HAS_REQUESTS = True
 except ImportError:
     HAS_REQUESTS = False
@@ -44,12 +41,10 @@ def calcular_fecha_habil_3_meses(fecha_base):
     m = m % 12 + 1
     d = min(fecha_base.day, calendar.monthrange(y, m)[1])
     proxima = date(y, m, d)
-
     if proxima.weekday() == 5:
         proxima += timedelta(days=2)
     elif proxima.weekday() == 6:
         proxima += timedelta(days=1)
-
     return proxima.strftime("%d/%m/%Y")
 
 

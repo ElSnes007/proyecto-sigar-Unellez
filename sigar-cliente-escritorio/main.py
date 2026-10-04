@@ -1,12 +1,20 @@
 # -*- coding: utf-8 -*-
-
 from datetime import date, datetime
 import os
 import sys
+import ctypes
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 from login import AuthApp  # Importación directa del módulo
 
+try:
+    # Hace que la aplicación sea DPI Aware en Windows
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)  # Process_Per_Monitor_DPI_Aware
+except Exception:
+    try:
+        ctypes.windll.user32.SetProcessDPIAware()
+    except Exception:
+        pass
 
 def iniciar_sistema():
     root = tk.Tk()
@@ -40,7 +48,8 @@ from database import (
     ARCHIVO_BAJAS,
     URL_RESPALDO_CLOUD,
     cargar_datos_locales,
-    cargar_historial_bajas,  # Asegúrate de tener/usar la función de lectura de bajas
+    cargar_historial_bajas,
+    exportar_respaldo_nube_bd,
     guardar_baja_local,
     guardar_datos_locales,
     obtener_conteo_bajas,
@@ -184,7 +193,10 @@ class InventarioBienesApp:
         if os.path.exists(PATH_LEMA) and HAS_PIL:
             try:
                 img_lema_pil = Image.open(PATH_LEMA).convert("RGBA")
-                pixels = list(img_lema_pil.getdata())
+                if hasattr(img_lema_pil, "get_flattened_data"):
+                    pixels = list(img_lema_pil.get_flattened_data())
+                else:
+                    pixels = list(img_lema_pil.getdata())
 
                 new_data = [
                     (
@@ -214,7 +226,7 @@ class InventarioBienesApp:
                     bg="#002B49",
                     bd=0,
                 )
-                lbl_lema.pack(side="left")
+                lbl_lema.pack(side="left", pady=(1, 0))
             except Exception as e:
                 print(f"Error cargando lema: {e}")
 
@@ -227,12 +239,13 @@ class InventarioBienesApp:
             activebackground="#334155",
             activeforeground="#ffffff",
             bd=0,
-            padx=8,
-            pady=2,
+            padx=10,
+            pady=3,
             cursor="hand2",
-            command=self.toggle_modo_oscuro_animado,
+            relief="flat",
         )
-        self.btn_modo_oscuro.pack(side="right", padx=12, pady=8)
+        self.btn_modo_oscuro.config(command=self.toggle_modo_oscuro_animado)
+        self.btn_modo_oscuro.pack(side="right", padx=12, pady=7)
 
     # --- TEMA MODO OSCURO / CLARO ---
     def toggle_modo_oscuro_animado(self):
@@ -292,9 +305,10 @@ class InventarioBienesApp:
             if self.modo_oscuro:
                 self.btn_modo_oscuro.config(
                     text="☀️ Modo Claro",
-                    bg="#f59e0b",
-                    fg="#0f172a",
-                    activebackground="#fbbf24",
+                    bg="#d97706",
+                    fg="#ffffff",
+                    activebackground="#b45309",
+                    activeforeground="#ffffff",
                 )
             else:
                 self.btn_modo_oscuro.config(
@@ -302,6 +316,7 @@ class InventarioBienesApp:
                     bg="#1e293b",
                     fg="#f8fafc",
                     activebackground="#334155",
+                    activeforeground="#ffffff",
                 )
 
         fg_texto_modo = pal["fg_texto"]
@@ -354,9 +369,10 @@ class InventarioBienesApp:
         )
 
         if hasattr(self, "entry_proximo"):
-            self.entry_proximo.config(
-                bg=pal["bg_root"], fg=pal["fg_texto"], font=FONT_BOLD
-            )
+            self.entry_proximo.config(font=FONT_BOLD)
+            # Re-evaluar la fecha para recalcular el color del texto (normal vs. rojo según el modo)
+            self.calcular_proxima_fecha_mantenimiento()
+
         if hasattr(self, "lbl_info_pie"):
             self.lbl_info_pie.config(
                 bg=pal["bg_root"], fg=pal["fg_subtexto"], font=FONT_LABEL
@@ -369,6 +385,27 @@ class InventarioBienesApp:
             self.lbl_icon_buscar.config(
                 bg=pal["bg_root"], fg=pal["fg_texto"], font=FONT_LABEL
             )
+
+        # Ajuste dinámico de contraste para el Botón Centro de Respaldos
+        if hasattr(self, "btn_centro_respaldos"):
+            if self.modo_oscuro:
+                self.btn_centro_respaldos.config(
+                    bg="#183056",
+                    fg="#f8fafc",
+                    activebackground="#0A2B5A",
+                    activeforeground="#ffffff",
+                    bd=0,
+                    highlightthickness=0,
+                )
+            else:
+                self.btn_centro_respaldos.config(
+                    bg="#42ADF8",
+                    fg="#ffffff",
+                    activebackground="#44a2ff",
+                    activeforeground="#ffffff",
+                    bd=0,
+                    highlightthickness=0,
+                )
 
         # Renderizar estado de tarjetas KPI
         self.actualizar_estilo_tarjetas_kpi()
@@ -383,7 +420,7 @@ class InventarioBienesApp:
                 foreground=pal["tree_fg"],
                 fieldbackground=tree_bg_even,
                 font=("Segoe UI", 9),
-                rowheight=30,
+                rowheight=28,
                 borderwidth=0,
             )
             self.style.map(
@@ -433,8 +470,6 @@ class InventarioBienesApp:
             padx_comp = 6 if esta_activa else 8
             pady_comp = 4 if esta_activa else 6
 
-            texto_titulo = f"✓ {titulo_base}" if esta_activa else titulo_base
-
             card_info["card"].config(
                 bg=bg_tarjeta,
                 highlightbackground=borde_color,
@@ -462,8 +497,18 @@ class InventarioBienesApp:
                     bg=borde_color if esta_activa else color_acento
                 )
 
+            # Configuración del Check Independiente
+            if "check" in card_info:
+                card_info["check"].config(
+                    text="●" if esta_activa else "",      # Se muestra solo si la tarjeta está activa
+                    bg=bg_tarjeta,
+                    fg=borde_color if esta_activa else color_acento,
+                    font=("Consolas", 15, "bold")         # Tamaño y fuente independiente
+                )
+
+            # Título limpio sin añadir caracteres Unicode pegados
             card_info["tit"].config(
-                text=texto_titulo,
+                text=titulo_base,
                 bg=bg_tarjeta,
                 fg=borde_color if esta_activa else color_acento,
                 font=FONT_KPI_TIT,
@@ -477,7 +522,7 @@ class InventarioBienesApp:
             card_info["val"].config(
                 bg=bg_tarjeta, fg=cfg["val"], font=FONT_KPI_VAL
             )
-
+            
     # --- TARJETAS MÉTRICAS ---
     def crear_panel_metricas(self):
         self.frame_kpis = tk.Frame(
@@ -520,6 +565,12 @@ class InventarioBienesApp:
         clave="TODOS",
         color_acento="#1E3A8A",
     ):
+        # Determinar estado activo y color de fondo de la tarjeta
+        es_activa = (self.filtro_metrica_activa == clave and clave != "TODOS")
+        t = "oscuro" if self.modo_oscuro else "claro"
+        cfg = self.PALETA[t]["kpis"][col]
+        bg_tarjeta = cfg["active_bg"] if es_activa else cfg["bg"]
+
         card = tk.Frame(
             self.frame_kpis, bd=0, highlightthickness=1, cursor="hand2"
         )
@@ -538,23 +589,37 @@ class InventarioBienesApp:
         content = tk.Frame(card, bd=0, highlightthickness=0, cursor="hand2")
         content.pack(side="left", fill="both", expand=True, padx=8, pady=6)
 
+        # Contenedor superior para el título e icono
         top_frame = tk.Frame(
-            content, bd=0, highlightthickness=0, cursor="hand2"
+            content, bg=bg_tarjeta, bd=0, highlightthickness=0, cursor="hand2"
         )
         top_frame.pack(fill="x")
+
+        # Indicador tipo punto activo (Dot)
+        lbl_check = tk.Label(
+            top_frame,
+            text="● " if es_activa else "",
+            font=("Segoe UI", 9, "bold"),
+            fg=color_acento,
+            bg=bg_tarjeta,
+            cursor="hand2",
+        )
+        lbl_check.pack(side="left", padx=(0, 2))
 
         lbl_tit = tk.Label(
             top_frame,
             text=titulo,
             font=("Segoe UI", 8, "bold"),
             fg=color_acento,
+            bg=bg_tarjeta,
             anchor="w",
             cursor="hand2",
         )
-        lbl_tit.pack(fill="x")
+        lbl_tit.pack(side="left", fill="x", expand=True)
 
+        # Línea divisoria horizontal limpia
         linea_div = tk.Frame(
-            top_frame,
+            content,
             height=2,
             bg=color_acento,
             bd=0,
@@ -611,6 +676,7 @@ class InventarioBienesApp:
             strip,
             content,
             top_frame,
+            lbl_check,
             lbl_tit,
             linea_div,
             body_frame,
@@ -634,6 +700,7 @@ class InventarioBienesApp:
             "head": body_frame,
             "left_col": left_col,
             "right_col": right_col,
+            "check": lbl_check,
             "tit": lbl_tit,
             "icon": lbl_icon,
             "val": lbl_val,
@@ -644,8 +711,25 @@ class InventarioBienesApp:
         })
         return lbl_val
 
+    def validar_entrada_fecha(self, P, S):
+        """
+        P: Texto que resultaría si se acepta la modificación.
+        S: Carácter/texto insertado.
+        """
+        if P == "":
+            return True
+
+        # Permitir solo números y la barra '/'
+        if not all(c.isdigit() or c == "/" for c in S):
+            return False
+
+        # Formato completo DD/MM/AAAA no excede los 10 caracteres
+        if len(P) > 10:
+            return False
+
+        return True
+
     def filtrar_por_metrica(self, clave):
-        # SI HACE CLIC EN LA TARJETA DE DESINCORPORADOS, SE ABRE LA VENTANA EMERGENTE
         if clave == "DESINCORPORADOS":
             self.mostrar_ventana_desincorporados()
             return
@@ -670,7 +754,6 @@ class InventarioBienesApp:
         ventana_bajas.transient(self.root)
         ventana_bajas.grab_set()
 
-        # Centrar ventana
         ventana_bajas.update_idletasks()
         w = ventana_bajas.winfo_width()
         h = ventana_bajas.winfo_height()
@@ -716,7 +799,6 @@ class InventarioBienesApp:
         tabla_bajas.pack(side="left", fill="both", expand=True)
         scroll_bajas.pack(side="right", fill="y")
 
-        # Cargar registros leídos desde bajas.json
         lista_bajas = cargar_historial_bajas()
         for i, reg in enumerate(lista_bajas):
             tag_fila = "par" if i % 2 == 0 else "impar"
@@ -788,7 +870,7 @@ class InventarioBienesApp:
         self.entry_id = tk.Entry(
             self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1
         )
-        self.entry_id.grid(row=0, column=1, padx=5, pady=4, sticky="ew")
+        self.entry_id.grid(row=0, column=1, padx=5, pady=4, ipady=3, sticky="ew")
 
         lbl2 = tk.Label(
             self.frame_form, text="Asignado a:", font=("Segoe UI", 8, "bold")
@@ -816,7 +898,7 @@ class InventarioBienesApp:
 
         frame_btn_form = tk.Frame(self.frame_form)
         frame_btn_form.grid(
-            row=0, column=6, rowspan=4, padx=10, pady=4, sticky="ns"
+            row=0, column=6, rowspan=4, padx=(12, 8), pady=4, sticky="ns"
         )
         self.frames_form_internos.append(frame_btn_form)
 
@@ -847,7 +929,7 @@ class InventarioBienesApp:
         tk.Button(
             frame_btn_form,
             text="Limpiar Campos",
-            bg="#6b7280",
+            bg="#475569",
             fg="white",
             font=("Segoe UI", 8, "bold"),
             command=self.limpiar_formulario,
@@ -867,7 +949,7 @@ class InventarioBienesApp:
             self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1
         )
         self.entry_nombre.grid(
-            row=1, column=1, columnspan=5, padx=5, pady=4, sticky="ew"
+            row=1, column=1, columnspan=5, padx=5, pady=4, ipady=3, sticky="ew"
         )
 
         lbl4 = tk.Label(
@@ -892,12 +974,22 @@ class InventarioBienesApp:
             font=("Segoe UI", 8, "bold"),
         )
         lbl5.grid(row=2, column=2, padx=(10, 5), pady=4, sticky="e")
+        # Registrar el comando de validación nativo de Tkinter
+        vcmd_fecha = (self.root.register(self.validar_entrada_fecha), "%P", "%S")
+
         self.entry_fecha_mant = tk.Entry(
-            self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1
+            self.frame_form,
+            font=("Segoe UI", 9),
+            relief="solid",
+            bd=1,
+            validate="key",             # Validar en cada pulsación de tecla
+            validatecommand=vcmd_fecha,  # Bloquea letras ANTES de renderizarlas
         )
         self.entry_fecha_mant.insert(0, date.today().strftime("%d/%m/%Y"))
-        self.entry_fecha_mant.grid(row=2, column=3, padx=5, pady=4, sticky="ew")
-        self.entry_fecha_mant.bind("<KeyRelease>", self.al_cambiar_fecha)
+        self.entry_fecha_mant.grid(row=2, column=3, padx=5, pady=4, ipady=3, sticky="ew")
+
+        # Mantenemos el auto-formato con las barras al soltar la tecla
+        self.entry_fecha_mant.bind("<KeyRelease>", self.formatear_y_validar_fecha)
 
         lbl6 = tk.Label(
             self.frame_form,
@@ -905,10 +997,10 @@ class InventarioBienesApp:
             font=("Segoe UI", 8, "bold"),
         )
         lbl6.grid(row=2, column=4, padx=(10, 5), pady=4, sticky="e")
-        self.entry_proximo = tk.Entry(
-            self.frame_form, font=("Segoe UI", 9, "bold"), relief="solid", bd=1
+        self.entry_proximo = tk.Entry( 
+            self.frame_form, font=("Segoe UI", 9, "bold"), relief="solid", bd=1, state="readonly"
         )
-        self.entry_proximo.grid(row=2, column=5, padx=5, pady=4, sticky="ew")
+        self.entry_proximo.grid(row=2, column=5, padx=5, pady=4, ipady=3, sticky="ew")
 
         lbl7 = tk.Label(
             self.frame_form,
@@ -920,7 +1012,7 @@ class InventarioBienesApp:
             self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1
         )
         self.entry_desc_mant.grid(
-            row=3, column=1, columnspan=5, padx=5, pady=4, sticky="ew"
+            row=3, column=1, columnspan=5, padx=5, pady=4, ipady=3, sticky="ew"
         )
 
         self.labels_texto.extend([lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7])
@@ -952,9 +1044,9 @@ class InventarioBienesApp:
             font=("Segoe UI", 9),
             relief="solid",
             bd=1,
-            width=20,
+            width=22,
         )
-        self.entry_buscar.pack(side="left", padx=5)
+        self.entry_buscar.pack(side="left", padx=5, ipady=3)
         self.entry_buscar.bind("<KeyRelease>", self.filtrar_tabla)
         self.entries_widgets.append(self.entry_buscar)
 
@@ -967,7 +1059,7 @@ class InventarioBienesApp:
             command=self.limpiar_filtro_busqueda,
             bd=0,
             padx=8,
-            pady=2,
+            pady=3,
             cursor="hand2",
         ).pack(side="left", padx=5)
 
@@ -1006,7 +1098,7 @@ class InventarioBienesApp:
         self.tabla.heading("proximo_mant", text="Próxima Fecha (Hábil)")
 
         self.tabla.column(
-            "id", width=60, minwidth=50, anchor="center", stretch=False
+            "id", width=70, minwidth=50, anchor="center", stretch=False
         )
         self.tabla.column(
             "nombre", width=220, minwidth=150, anchor="w", stretch=True
@@ -1016,14 +1108,14 @@ class InventarioBienesApp:
         )
         self.tabla.column(
             "mantenimiento",
-            width=105,
+            width=115,
             minwidth=90,
             anchor="center",
             stretch=False,
         )
         self.tabla.column(
             "fecha_mant",
-            width=90,
+            width=100,
             minwidth=85,
             anchor="center",
             stretch=False,
@@ -1079,23 +1171,25 @@ class InventarioBienesApp:
             self.root, bg=self.PALETA["claro"]["bg_root"]
         )
         self.frame_acciones.grid(
-            row=5, column=0, sticky="ew", padx=15, pady=(4, 10)
+            row=5, column=0, sticky="ew", padx=15, pady=(2, 8)
         )
 
-        tk.Button(
+        separador = ttk.Separator(self.frame_acciones, orient="horizontal")
+        separador.pack(fill="x", pady=(0, 6))
+
+        # Asignación a self.btn_centro_respaldos para control de estilo dinámico
+        self.btn_centro_respaldos = tk.Button(
             self.frame_acciones,
             text="☁️ Centro de Respaldos",
-            bg="#0284C7",
-            fg="white",
-            activebackground="#0369a1",
-            activeforeground="white",
             font=("Segoe UI", 8, "bold"),
             command=self.abrir_ventana_respaldos,
             bd=0,
             padx=14,
-            pady=6,
+            pady=5,
             cursor="hand2",
-        ).pack(side="left")
+            relief="flat",
+        )
+        self.btn_centro_respaldos.pack(side="left")
 
         self.lbl_info_pie = tk.Label(
             self.frame_acciones,
@@ -1201,6 +1295,7 @@ class InventarioBienesApp:
             )
             return
 
+        exportar_respaldo_nube_bd(parent_window=modal)
         messagebox.showinfo(
             "Conexión Backend",
             "Frontend preparado para enviar datos al servidor"
@@ -1540,19 +1635,99 @@ class InventarioBienesApp:
     def al_cambiar_fecha(self, event=None):
         self.calcular_proxima_fecha_mantenimiento()
 
+    def formatear_y_validar_fecha(self, event=None):
+        # Ignorar teclas de navegación y borrado
+        if event and event.keysym in (
+            "BackSpace",
+            "Delete",
+            "Left",
+            "Right",
+            "Tab",
+            "Shift_L",
+            "Shift_R",
+        ):
+            self.calcular_proxima_fecha_mantenimiento()
+            return
+
+        texto_actual = self.entry_fecha_mant.get()
+
+        # Si ya tiene la longitud final completa, no formateamos más
+        if len(texto_actual) == 10 and texto_actual.count("/") == 2:
+            self.calcular_proxima_fecha_mantenimiento()
+            return
+
+        # Dividimos por las barras que haya escrito el usuario
+        partes = texto_actual.split("/")
+        
+        # Limpiamos cada parte dejando solo números
+        dia = "".join(c for c in partes[0] if c.isdigit())[:2]
+        mes = "".join(c for c in partes[1] if c.isdigit())[:2] if len(partes) > 1 else ""
+        anio = "".join(c for c in partes[2] if c.isdigit())[:4] if len(partes) > 2 else ""
+
+        # Reconstruimos la fecha según el flujo de escritura
+        fecha_formateada = dia
+
+        # AUTO-COMPLETAR o MANTENER BARRA 1
+        # Si el día tiene 2 dígitos o si el usuario escribió la primera barra
+        if len(dia) == 2 or len(partes) > 1:
+            fecha_formateada += "/" + mes
+
+        # AUTO-COMPLETAR o MANTENER BARRA 2
+        # Si el mes tiene 2 dígitos o si el usuario escribió la segunda barra
+        if len(mes) == 2 or len(partes) > 2:
+            fecha_formateada += "/" + anio
+
+        # Evitamos reescritura innecesaria si el texto ya coincide
+        if texto_actual != fecha_formateada:
+            pos_cursor = self.entry_fecha_mant.index(tk.INSERT)
+            self.entry_fecha_mant.delete(0, tk.END)
+            self.entry_fecha_mant.insert(0, fecha_formateada)
+
+            # Reajuste inteligente de posición del cursor
+            diferencia = len(fecha_formateada) - len(texto_actual)
+            nueva_pos = pos_cursor + diferencia
+            self.entry_fecha_mant.icursor(max(0, nueva_pos))
+
+        self.calcular_proxima_fecha_mantenimiento()
+
     def calcular_proxima_fecha_mantenimiento(self):
         fecha_str = self.entry_fecha_mant.get().strip()
+        t = "oscuro" if self.modo_oscuro else "claro"
+        
+        # Colores de estado normal (del tema actual)
+        bg_normal = self.PALETA[t]["bg_root"]
+        fg_normal = self.PALETA[t]["fg_texto"]
+        
+        # Colores de estado de error (Fondo y Texto según el tema)
+        if self.modo_oscuro:
+            bg_error = "#f9cece"  # Fondo rojo vino oscuro
+            fg_error = "#dc2626"  # Texto salmón/rojo claro
+        else:
+            bg_error = "#f9cece"  # Fondo rosa/rojo muy claro
+            fg_error = "#dc2626"  # Texto rojo oscuro intenso
+
+        # Habilitar temporalmente la edición para actualizar el contenido
+        self.entry_proximo.config(state="normal")
+
         for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
             try:
                 dt = datetime.strptime(fecha_str, fmt).date()
                 proxima_str = calcular_fecha_habil_3_meses(dt)
+                
+                # Restaurar colores normales cuando la fecha sea válida
+                self.entry_proximo.config(bg=bg_normal, fg=fg_normal, readonlybackground=bg_normal)
                 self.entry_proximo.delete(0, tk.END)
                 self.entry_proximo.insert(0, proxima_str)
+                self.entry_proximo.config(state="readonly")
                 return proxima_str
             except ValueError:
                 pass
+
+        # Si el formato es inválido, aplicar colores de alerta y bloquear
+        self.entry_proximo.config(bg=bg_error, fg=fg_error, readonlybackground=bg_error)
         self.entry_proximo.delete(0, tk.END)
         self.entry_proximo.insert(0, "Formato Inválido")
+        self.entry_proximo.config(state="readonly")
         return None
 
     def actualizar_tabla(self):
