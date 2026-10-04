@@ -134,7 +134,7 @@ class AuthApp:
         highlightbackground='#2b3e63',
         highlightcolor='#38bdf8',
     )
-    self.entry_pass.pack(fill='x', ipady=7, pady=(0, 18))
+    self.entry_pass.pack(fill='x', ipady=4, pady=(0, 18))
     self.entry_pass.bind('<Return>', lambda e: self.procesar_login())
     self.entry_pass.bind('<Key>', lambda e: self.limpiar_error())
 

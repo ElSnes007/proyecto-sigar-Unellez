@@ -41,10 +41,12 @@ def calcular_fecha_habil_3_meses(fecha_base):
     m = m % 12 + 1
     d = min(fecha_base.day, calendar.monthrange(y, m)[1])
     proxima = date(y, m, d)
+
     if proxima.weekday() == 5:
         proxima += timedelta(days=2)
     elif proxima.weekday() == 6:
         proxima += timedelta(days=1)
+
     return proxima.strftime("%d/%m/%Y")
 
 
