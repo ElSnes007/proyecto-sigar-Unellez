@@ -1,36 +1,27 @@
 # -*- coding: utf-8 -*-
-from datetime import date, datetime
 import os
 import sys
 import ctypes
+from datetime import date, datetime
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
-from login import AuthApp  # Importación directa del módulo
+
+import customtkinter as ctk
+
+from login import AuthApp
 from modals import VentanaDesincorporados, VentanaRespaldos
 
+# Configuración global de CustomTkinter
+ctk.set_appearance_mode("System")
+ctk.set_default_color_theme("blue")
+
 try:
-    # Hace que la aplicación sea DPI Aware en Windows
-    ctypes.windll.shcore.SetProcessDpiAwareness(2)  # Process_Per_Monitor_DPI_Aware
+    ctypes.windll.shcore.SetProcessDpiAwareness(2)
 except Exception:
     try:
         ctypes.windll.user32.SetProcessDPIAware()
     except Exception:
         pass
-
-def iniciar_sistema():
-    root = tk.Tk()
-    root.withdraw()  # Ocultar la ventana principal mientras valida credenciales
-
-    # Lanzar la ventana de login
-    login_win = AuthApp(root)
-
-    # Verificar si el usuario se autenticó correctamente
-    if getattr(login_win, "autenticado", False):
-        root.deiconify()  # Mostrar la interfaz principal
-        app = InventarioBienesApp(root)
-        root.mainloop()
-    else:
-        root.destroy()  # Cerrar si canceló o falló el login
 
 
 def obtener_ruta_base():
@@ -40,17 +31,12 @@ def obtener_ruta_base():
     return os.path.dirname(os.path.abspath(__file__))
 
 
-# Registrar la ruta base en sys.path antes de cualquier importación de módulos locales
 DIR_ACTUAL = obtener_ruta_base()
 if DIR_ACTUAL not in sys.path:
     sys.path.insert(0, DIR_ACTUAL)
 
 from database import (
-    ARCHIVO_BAJAS,
-    URL_RESPALDO_CLOUD,
     cargar_datos_locales,
-    cargar_historial_bajas,
-    exportar_respaldo_nube_bd,
     guardar_baja_local,
     guardar_datos_locales,
     obtener_conteo_bajas,
@@ -63,13 +49,10 @@ from styles import (
     PALETA,
     cargar_preferencia_tema,
     guardar_preferencia_tema,
-    hex_a_rgb,
-    obtener_estilo_kpi,  # <-- Agregar aquí
-    rgb_a_hex,
+    obtener_estilo_kpi,
 )
 from utils import (
     HAS_PIL,
-    HAS_REQUESTS,
     calcular_fecha_habil_3_meses,
     generar_acta_baja,
 )
@@ -77,9 +60,22 @@ from utils import (
 if HAS_PIL:
     from PIL import Image, ImageTk
 
-# Definición dinámica de imágenes
 ARCHIVO_LOGO = os.path.join(DIR_ACTUAL, "UNELLEZ LOGO.png")
 PATH_LEMA = os.path.join(DIR_ACTUAL, "lema_unellez_oro.png")
+
+
+def iniciar_sistema():
+    root = ctk.CTk()
+    root.withdraw()
+
+    login_win = AuthApp(root)
+
+    if getattr(login_win, "autenticado", False):
+        root.deiconify()
+        app = InventarioBienesApp(root)
+        root.mainloop()
+    else:
+        root.destroy()
 
 
 class InventarioBienesApp:
@@ -89,36 +85,32 @@ class InventarioBienesApp:
         self.root.title(
             "SIGAR (UNELLEZ) - Sistema de Inventario Local y Gestión de Activos"
         )
-        self.root.geometry("1024x680")
-        self.root.minsize(800, 500)
+        self.root.geometry("1024x720")
+        self.root.minsize(850, 580)
 
         self.modo_actual = cargar_preferencia_tema()
         self.modo_oscuro = self.modo_actual == "oscuro"
-        self.filtro_metrica_activa = "TODOS"  # Estado del filtro por KPI
+        ctk.set_appearance_mode("Dark" if self.modo_oscuro else "Light")
+
+        self.filtro_metrica_activa = "TODOS"
 
         try:
             self.root.state("zoomed")
         except Exception:
             pass
 
+        # Configuración del Grid Principal
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=0)  # Cintillo
         self.root.rowconfigure(1, weight=0)  # KPIs
         self.root.rowconfigure(2, weight=0)  # Formulario
         self.root.rowconfigure(3, weight=0)  # Búsqueda
-        self.root.rowconfigure(4, weight=1)  # Tabla
+        self.root.rowconfigure(4, weight=1)  # Tabla (Toma todo el espacio remanente)
         self.root.rowconfigure(5, weight=0)  # Acciones
 
         self.PALETA = PALETA
-        self.root.configure(bg=self.PALETA[self.modo_actual]["bg_root"])
-
-        self.style = ttk.Style()
-        self.style.theme_use("clam")
-
         self.bienes = []
         self.tarjetas_widgets = []
-        self.labels_texto = []
-        self.entries_widgets = []
 
         # Construcción GUI
         self.crear_cintillo_institucional()
@@ -129,10 +121,10 @@ class InventarioBienesApp:
         self.crear_menu_contextual()
         self.crear_panel_acciones()
 
-        # Aplicar tema
+        # Aplicar el tema seleccionado
         self.aplicar_tema_widgets()
 
-        # Cargar datos
+        # Carga de datos inicial
         self.bienes = cargar_datos_locales()
         self.actualizar_tabla()
         self.actualizar_metricas()
@@ -145,114 +137,84 @@ class InventarioBienesApp:
 
     # --- CINTILLO INSTITUCIONAL ---
     def crear_cintillo_institucional(self):
-        self.frame_cintillo = tk.Frame(self.root, bg="#002B49", height=44)
+        self.frame_cintillo = ctk.CTkFrame(
+            self.root, fg_color="#002B49", corner_radius=0, height=48
+        )
         self.frame_cintillo.grid(row=0, column=0, sticky="ew")
         self.frame_cintillo.pack_propagate(False)
 
-        frame_logo_titulo = tk.Frame(self.frame_cintillo, bg="#002B49")
+        frame_logo_titulo = ctk.CTkFrame(self.frame_cintillo, fg_color="transparent")
         frame_logo_titulo.pack(side="left", padx=12, pady=2)
 
         self.logo_img = None
-        if os.path.exists(ARCHIVO_LOGO):
+        if os.path.exists(ARCHIVO_LOGO) and HAS_PIL:
             try:
-                if HAS_PIL:
-                    img_pil = Image.open(ARCHIVO_LOGO).resize(
-                        (34, 34), Image.Resampling.LANCZOS
-                    )
-                    self.logo_img = ImageTk.PhotoImage(img_pil)
-                else:
-                    raw_img = tk.PhotoImage(file=ARCHIVO_LOGO)
-                    w_factor = max(1, raw_img.width() // 34)
-                    h_factor = max(1, raw_img.height() // 34)
-                    self.logo_img = raw_img.subsample(w_factor, h_factor)
+                img_pil = Image.open(ARCHIVO_LOGO)
+                self.logo_img = ctk.CTkImage(
+                    light_image=img_pil, dark_image=img_pil, size=(34, 34)
+                )
+                lbl_logo = ctk.CTkLabel(
+                    frame_logo_titulo, image=self.logo_img, text=""
+                )
+                lbl_logo.pack(side="left", padx=(0, 8))
             except Exception:
-                self.logo_img = None
+                pass
 
-        if self.logo_img:
-            lbl_logo = tk.Label(
-                frame_logo_titulo, image=self.logo_img, bg="#002B49"
-            )
-            lbl_logo.pack(side="left", padx=(0, 8))
-
-        lbl_unellez = tk.Label(
+        lbl_unellez = ctk.CTkLabel(
             frame_logo_titulo,
             text="UNELLEZ",
-            font=("Segoe UI", 13, "bold"),
-            fg="#FF6600",
-            bg="#002B49",
+            font=ctk.CTkFont(family="Segoe UI", size=15, weight="bold"),
+            text_color="#FF6600",
         )
         lbl_unellez.pack(side="left")
 
-        lbl_separador = tk.Label(
+        lbl_separador = ctk.CTkLabel(
             frame_logo_titulo,
-            text="|",
-            font=("Segoe UI", 12, "bold"),
-            fg="#475569",
-            bg="#002B49",
+            text="| >",
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            text_color="#475569",
         )
         lbl_separador.pack(side="left", padx=(10, 10))
 
         if os.path.exists(PATH_LEMA) and HAS_PIL:
             try:
                 img_lema_pil = Image.open(PATH_LEMA).convert("RGBA")
-                if hasattr(img_lema_pil, "get_flattened_data"):
-                    pixels = list(img_lema_pil.get_flattened_data())
-                else:
-                    pixels = list(img_lema_pil.getdata())
-
-                new_data = [
-                    (
-                        (255, 255, 255, 0)
-                        if item[0] > 230 and item[1] > 230 and item[2] > 230
-                        else item
-                    )
-                    for item in pixels
-                ]
-                img_lema_pil.putdata(new_data)
-
-                bbox = img_lema_pil.getbbox()
-                if bbox:
-                    img_lema_pil = img_lema_pil.crop(bbox)
-
-                target_height = 18
+                # Aumentamos la altura de 20 a 28 para que sea legible
+                target_height = 155
                 aspect_ratio = img_lema_pil.width / img_lema_pil.height
                 target_width = int(target_height * aspect_ratio)
 
-                img_lema_pil = img_lema_pil.resize(
-                    (target_width, target_height), Image.Resampling.LANCZOS
+                self.img_lema_oro = ctk.CTkImage(
+                    light_image=img_lema_pil,
+                    dark_image=img_lema_pil,
+                    size=(target_width, target_height),
                 )
-                self.img_lema_oro = ImageTk.PhotoImage(img_lema_pil)
-                lbl_lema = tk.Label(
-                    frame_logo_titulo,
-                    image=self.img_lema_oro,
-                    bg="#002B49",
-                    bd=0,
+                lbl_lema = ctk.CTkLabel(
+                    frame_logo_titulo, 
+                    image=self.img_lema_oro, 
+                    text=""
                 )
-                lbl_lema.pack(side="left", pady=(1, 0))
+                lbl_lema.pack(side="left", padx=(0, 4), pady=6)
             except Exception as e:
                 print(f"Error cargando lema: {e}")
 
-        self.btn_modo_oscuro = tk.Button(
+        self.btn_modo_oscuro = ctk.CTkButton(
             self.frame_cintillo,
             text="🌙 Cuidado de Vista",
-            font=("Segoe UI", 8, "bold"),
-            bg="#1e293b",
-            fg="#f8fafc",
-            activebackground="#334155",
-            activeforeground="#ffffff",
-            bd=0,
-            padx=10,
-            pady=3,
-            cursor="hand2",
-            relief="flat",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            fg_color="#1e293b",
+            hover_color="#334155",
+            text_color="#f8fafc",
+            corner_radius=8,
+            height=30,
+            command=self.toggle_modo_oscuro_animado,
         )
-        self.btn_modo_oscuro.config(command=self.toggle_modo_oscuro_animado)
-        self.btn_modo_oscuro.pack(side="right", padx=12, pady=7)
+        self.btn_modo_oscuro.pack(side="right", padx=12, pady=8)
 
-    # --- TEMA MODO OSCURO / CLARO ---
     def toggle_modo_oscuro_animado(self):
         self.modo_oscuro = not self.modo_oscuro
         self.modo_actual = "oscuro" if self.modo_oscuro else "claro"
+        ctk.set_appearance_mode("Dark" if self.modo_oscuro else "Light")
         self.aplicar_tema_widgets()
 
     def aplicar_tema_widgets(self):
@@ -261,245 +223,68 @@ class InventarioBienesApp:
         pal = self.PALETA[t]
         guardar_preferencia_tema(self.modo_actual)
 
-        self.root.config(bg=pal["bg_root"])
-        if hasattr(self, "frame_kpis"):
-            self.frame_kpis.config(bg=pal["bg_root"])
-            
-        # Actualizar colores del Frame y Labels de Búsqueda
-        if hasattr(self, 'frame_busqueda'):
-            self.frame_busqueda.config(bg=pal["bg_root"])
-            self.lbl_lupa.config(bg=pal["bg_root"], fg=pal["fg_texto"])
-            self.lbl_buscar.config(bg=pal["bg_root"], fg=pal["fg_texto"])
-            self.lbl_indicador_busqueda.config(
-                bg=pal["bg_root"], 
-                fg=pal.get("fg_subtexto", pal["fg_texto"])
-            )
-            self.entry_buscar.config(
-            bg="white" if not self.modo_oscuro else "#1e1e1e",
-            fg="black" if not self.modo_oscuro else "white",
-            insertbackground="black" if not self.modo_oscuro else "white",
-        )
-            
-        if hasattr(self, "frame_tabla"):
-            self.frame_tabla.config(bg=pal["bg_root"])
-        if hasattr(self, "frame_acciones"):
-            self.frame_acciones.config(bg=pal["bg_root"])
-
         if hasattr(self, "btn_modo_oscuro"):
             if self.modo_oscuro:
-                self.btn_modo_oscuro.config(
+                self.btn_modo_oscuro.configure(
                     text="☀️ Modo Claro",
-                    bg="#d97706",
-                    fg="#ffffff",
-                    activebackground="#b45309",
-                    activeforeground="#ffffff",
+                    fg_color="#d97706",
+                    hover_color="#b45309",
                 )
             else:
-                self.btn_modo_oscuro.config(
+                self.btn_modo_oscuro.configure(
                     text="🌙 Cuidado de Vista",
-                    bg="#1e293b",
-                    fg="#f8fafc",
-                    activebackground="#334155",
-                    activeforeground="#ffffff",
+                    fg_color="#1e293b",
+                    hover_color="#334155",
                 )
 
-        fg_texto_modo = pal["fg_texto"]
-        bg_panel_modo = pal["bg_panel"]
-
-        if hasattr(self, "frame_form"):
-            self.frame_form.config(
-                bg=bg_panel_modo,
-                fg=fg_texto_modo,
-                bd=0,
-                highlightthickness=1,
-                highlightbackground=pal["border_panel"],
-                highlightcolor=pal["border_panel"],
-            )
-
-        for lbl in getattr(self, "labels_texto", []):
-            lbl.config(bg=bg_panel_modo, fg=fg_texto_modo, font=FONT_LABEL)
-
-        for f in getattr(self, "frames_form_internos", []):
-            f.config(bg=bg_panel_modo)
-
-        for entry in getattr(self, "entries_widgets", []):
-            entry.config(
-                bg=pal["entry_bg"],
-                fg=pal["entry_fg"],
-                insertbackground=pal["entry_fg"],
-                highlightbackground=pal["entry_border"],
-                highlightthickness=1,
-                font=FONT_LABEL,
-                bd=0,
-            )
-
-        self.style.theme_use("default")
-        self.style.configure(
-            "TCombobox",
-            fieldbackground=pal["entry_bg"],
-            background=pal["entry_bg"],
-            foreground=pal["entry_fg"],
-            darkcolor=pal["entry_bg"],
-            lightcolor=pal["entry_bg"],
-            selectbackground=pal["entry_bg"],
-            selectforeground=pal["entry_fg"],
-            arrowcolor=fg_texto_modo,
-            font=FONT_LABEL,
-        )
-        self.style.map(
-            "TCombobox",
-            fieldbackground=[("readonly", pal["entry_bg"])],
-            foreground=[("readonly", pal["entry_fg"])],
-        )
-
-        if hasattr(self, "entry_proximo"):
-            self.entry_proximo.config(font=FONT_BOLD)
-            # Re-evaluar la fecha para recalcular el color del texto (normal vs. rojo según el modo)
-            self.calcular_proxima_fecha_mantenimiento()
-
-        if hasattr(self, "lbl_info_pie"):
-            self.lbl_info_pie.config(
-                bg=pal["bg_root"], fg=pal["fg_subtexto"], font=FONT_LABEL
-            )
-        if hasattr(self, "lbl_indicador_busqueda"):
-            self.lbl_indicador_busqueda.config(
-                bg=pal["bg_root"], fg=pal["fg_subtexto"], font=FONT_LABEL
-            )
-        if hasattr(self, "lbl_icon_buscar"):
-            self.lbl_icon_buscar.config(
-                bg=pal["bg_root"], fg=pal["fg_texto"], font=FONT_LABEL
-            )
-
-        # Ajuste dinámico de contraste para el Botón Centro de Respaldos
-        if hasattr(self, "btn_centro_respaldos"):
-            if self.modo_oscuro:
-                self.btn_centro_respaldos.config(
-                    bg="#183056",
-                    fg="#f8fafc",
-                    activebackground="#0A2B5A",
-                    activeforeground="#ffffff",
-                    bd=0,
-                    highlightthickness=0,
-                )
-            else:
-                self.btn_centro_respaldos.config(
-                    bg="#42ADF8",
-                    fg="#ffffff",
-                    activebackground="#44a2ff",
-                    activeforeground="#ffffff",
-                    bd=0,
-                    highlightthickness=0,
-                )
-
-        # Renderizar estado de tarjetas KPI
         self.actualizar_estilo_tarjetas_kpi()
 
+        # Estilizado del Treeview
         if hasattr(self, "tabla"):
-            tree_bg_even = pal["tree_bg"] if not self.modo_oscuro else "#1e293b"
-            tree_bg_odd = pal["bg_root"] if not self.modo_oscuro else "#0f172a"
+            style = ttk.Style()
+            style.theme_use("clam")
 
-            self.style.configure(
+            tree_bg = pal["tree_bg"]
+            tree_fg = pal["tree_fg"]
+            head_bg = pal["tree_head_bg"]
+            head_fg = pal["tree_head_fg"]
+            tree_bg_odd = "#1e293b" if self.modo_oscuro else "#f1f5f9"
+
+            style.configure(
                 "Treeview",
-                background=tree_bg_even,
-                foreground=pal["tree_fg"],
-                fieldbackground=tree_bg_even,
+                background=tree_bg,
+                foreground=tree_fg,
+                fieldbackground=tree_bg,
                 font=("Segoe UI", 9),
-                rowheight=28,
+                rowheight=25,  # Cambiado de 30 a 25 para ver más filas
                 borderwidth=0,
             )
-            self.style.map(
+            style.map(
                 "Treeview",
-                background=[("selected", "#2563eb")],
+                background=[("selected", "#0284c7")],
                 foreground=[("selected", "#ffffff")],
             )
-            self.style.configure(
+            style.configure(
                 "Treeview.Heading",
-                background=pal["tree_head_bg"],
-                foreground=pal["tree_head_fg"],
+                background=head_bg,
+                foreground=head_fg,
                 font=("Segoe UI", 9, "bold"),
                 relief="flat",
-                borderwidth=1,
             )
-            self.style.map(
+            style.map(
                 "Treeview.Heading",
-                background=[("active", pal["tree_head_bg"])],
-                foreground=[("active", pal["tree_head_fg"])],
+                background=[("active", head_bg)],
+                foreground=[("active", head_fg)],
             )
 
+            self.tabla.tag_configure("par", background=tree_bg, foreground=tree_fg)
             self.tabla.tag_configure(
-                "par", background=tree_bg_even, foreground=pal["tree_fg"]
-            )
-            self.tabla.tag_configure(
-                "impar", background=tree_bg_odd, foreground=pal["tree_fg"]
+                "impar", background=tree_bg_odd, foreground=tree_fg
             )
 
-    def actualizar_estilo_tarjetas_kpi(self):
-        for i, card_info in enumerate(getattr(self, "tarjetas_widgets", [])):
-            clave_kpi = card_info["clave"]
-            titulo_base = card_info["titulo_original"]
-            esta_activa = (
-                self.filtro_metrica_activa == clave_kpi and clave_kpi != "TODOS"
-            )
-
-            # Obtener el paquete de estilos listo desde styles.py
-            estilo = obtener_estilo_kpi(self.modo_oscuro, i, esta_activa)
-
-            card_info["card"].config(
-                bg=estilo["bg_tarjeta"],
-                highlightbackground=estilo["borde_color"],
-                highlightcolor=estilo["borde_color"],
-                highlightthickness=estilo["grosor_borde"],
-            )
-            card_info["strip"].config(
-                bg=estilo["color_acento"] if not esta_activa else estilo["borde_color"]
-            )
-            card_info["content"].config(
-                bg=estilo["bg_tarjeta"], padx=estilo["padx"], pady=estilo["pady"]
-            )
-
-            if "top_frame" in card_info:
-                card_info["top_frame"].config(bg=estilo["bg_tarjeta"])
-            if "left_col" in card_info:
-                card_info["left_col"].config(bg=estilo["bg_tarjeta"])
-            if "right_col" in card_info:
-                card_info["right_col"].config(bg=estilo["bg_tarjeta"])
-            card_info["head"].config(bg=estilo["bg_tarjeta"])
-
-            if "linea" in card_info:
-                card_info["linea"].config(
-                    bg=estilo["borde_color"] if esta_activa else estilo["color_acento"]
-                )
-
-            # Check / Indicador separado
-            if "check" in card_info:
-                card_info["check"].config(
-                    text="●" if esta_activa else "",
-                    bg=estilo["bg_tarjeta"],
-                    fg=estilo["color_indicador"],
-                    font=("Consolas", 15, "bold"),
-                )
-
-            card_info["tit"].config(
-                text=titulo_base,
-                bg=estilo["bg_tarjeta"],
-                fg=estilo["color_indicador"],
-                font=FONT_KPI_TIT,
-            )
-            card_info["sub"].config(
-                bg=estilo["bg_tarjeta"], fg=estilo["color_sub"], font=FONT_LABEL
-            )
-            card_info["icon"].config(
-                bg=estilo["bg_tarjeta"], fg=estilo["color_indicador"]
-            )
-            card_info["val"].config(
-                bg=estilo["bg_tarjeta"], fg=estilo["color_val"], font=FONT_KPI_VAL
-            )
-            
     # --- TARJETAS MÉTRICAS ---
     def crear_panel_metricas(self):
-        self.frame_kpis = tk.Frame(
-            self.root, bg=self.PALETA["claro"]["bg_root"]
-        )
+        self.frame_kpis = ctk.CTkFrame(self.root, fg_color="transparent")
         self.frame_kpis.grid(row=1, column=0, sticky="ew", padx=15, pady=(10, 5))
 
         for i in range(5):
@@ -510,7 +295,7 @@ class InventarioBienesApp:
             ("TOTAL ACTIVOS", "0", "Bienes registrados", "📋", "TODOS"),
             ("OPERATIVOS", "0", "En servicio activo", "🟢", "OPERATIVOS"),
             ("PREVENTIVOS", "0", "Ciclo regular (+3M)", "🔧", "PREVENTIVOS"),
-            ("CORRECTIVOS", "0", "Ajuste / Reparación", "⚠️", "CORRECTIVOS"),
+            ("CORRECTIVOS", "0", "Ajuste / Reparación", "⚙️", "CORRECTIVOS"),
             ("DESINCORPORADOS", "0", "Actas emitidas", "❌", "DESINCORPORADOS"),
         ]
 
@@ -527,244 +312,159 @@ class InventarioBienesApp:
             elif col == 4:
                 self.lbl_val_desincorporados = val_widget
 
-    def crear_tarjeta(
-        self,
-        col,
-        titulo,
-        valor_inicial,
-        subtitulo,
-        icono="📊",
-        clave="TODOS",
-        color_acento="#1E3A8A",
-    ):
-        es_activa = (self.filtro_metrica_activa == clave and clave != "TODOS")
-        estilo = obtener_estilo_kpi(self.modo_oscuro, col, es_activa)
-
-        card = tk.Frame(
-            self.frame_kpis, bd=0, highlightthickness=1, cursor="hand2"
+    def crear_tarjeta(self, col, titulo, valor_inicial, subtitulo, icono="📊", clave="TODOS"):
+        card = ctk.CTkFrame(
+            self.frame_kpis,
+            corner_radius=10,
+            border_width=1,
+            cursor="hand2",
         )
         card.grid(row=0, column=col, sticky="nsew", padx=4)
 
-        strip = tk.Frame(
-            card,
-            width=4,
-            bg=estilo["color_acento"],
-            bd=0,
-            highlightthickness=0,
-            cursor="hand2",
-        )
-        strip.pack(side="left", fill="y")
+        # 1. Encabezado superior (Título e indicador activo)
+        top_frame = ctk.CTkFrame(card, fg_color="transparent")
+        top_frame.pack(fill="x", padx=10, pady=(6, 2))
 
-        content = tk.Frame(card, bd=0, highlightthickness=0, cursor="hand2")
-        content.pack(side="left", fill="both", expand=True, padx=8, pady=6)
-
-        top_frame = tk.Frame(
-            content, bg=estilo["bg_tarjeta"], bd=0, highlightthickness=0, cursor="hand2"
-        )
-        top_frame.pack(fill="x")
-
-        # Indicador independiente (Punto ●)
-        lbl_check = tk.Label(
+        lbl_check = ctk.CTkLabel(
             top_frame,
-            text="●" if es_activa else "",
-            font=("Consolas", 15, "bold"),
-            fg=estilo["color_indicador"],
-            bg=estilo["bg_tarjeta"],
-            cursor="hand2",
+            text="",
+            font=ctk.CTkFont(family="Consolas", size=18, weight="bold"),
         )
         lbl_check.pack(side="left", padx=(0, 2))
 
-        lbl_tit = tk.Label(
+        lbl_tit = ctk.CTkLabel(
             top_frame,
             text=titulo,
-            font=FONT_KPI_TIT,
-            fg=estilo["color_indicador"],
-            bg=estilo["bg_tarjeta"],
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
             anchor="w",
-            cursor="hand2",
         )
         lbl_tit.pack(side="left", fill="x", expand=True)
 
-        linea_div = tk.Frame(
-            content,
+        # 2. Línea separadora (Alineada a la izquierda y pegada al título)
+        linea_separadora = ctk.CTkFrame(
+            card,
             height=2,
-            bg=estilo["color_acento"],
-            bd=0,
-            highlightthickness=0,
-            cursor="hand2",
+            corner_radius=0
         )
-        linea_div.pack(fill="x", pady=(2, 6))
+        linea_separadora.pack(anchor="w", fill="x", padx=(10, 90), pady=(0, 4))
 
-        body_frame = tk.Frame(content, bd=0, highlightthickness=0, cursor="hand2")
-        body_frame.pack(fill="both", expand=True)
+       # 3. Cuerpo principal (Número + Ícono alineado a la derecha)
+        body_frame = ctk.CTkFrame(card, fg_color="transparent")
+        body_frame.pack(fill="both", expand=True, padx=10, pady=(0, 6))
 
-        left_col = tk.Frame(
-            body_frame, bd=0, highlightthickness=0, cursor="hand2"
-        )
-        left_col.pack(side="left", fill="both", expand=True)
+        val_frame = ctk.CTkFrame(body_frame, fg_color="transparent")
+        val_frame.pack(fill="x", expand=True)
+        val_frame.columnconfigure(0, weight=1)  # La columna 0 (el valor) absorbe todo el espacio extra
 
-        lbl_val = tk.Label(
-            left_col,
+        lbl_val = ctk.CTkLabel(
+            val_frame,
             text=valor_inicial,
-            font=FONT_KPI_VAL,
-            fg=estilo["color_val"],
+            font=ctk.CTkFont(family="Segoe UI", size=28, weight="bold"),
             anchor="w",
-            cursor="hand2",
         )
-        lbl_val.pack(fill="x")
+        lbl_val.grid(row=0, column=0, sticky="w")
 
-        lbl_sub = tk.Label(
-            left_col,
+        lbl_icon = ctk.CTkLabel(
+            val_frame, 
+            text=icono, 
+            font=ctk.CTkFont(size=24), 
+            anchor="e"
+        )
+        lbl_icon.grid(row=0, column=1, sticky="e")
+
+        lbl_sub = ctk.CTkLabel(
+            body_frame,
             text=subtitulo,
-            font=FONT_LABEL,
-            fg=estilo["color_sub"],
+            font=ctk.CTkFont(family="Segoe UI", size=12),
             anchor="w",
-            cursor="hand2",
         )
         lbl_sub.pack(fill="x")
 
-        right_col = tk.Frame(
-            body_frame, width=35, bd=0, highlightthickness=0, cursor="hand2"
-        )
-        right_col.pack_propagate(False)
-        right_col.pack(side="right", fill="y")
-
-        lbl_icon = tk.Label(
-            right_col,
-            text=icono,
-            font=("Segoe UI", 16),
-            fg=estilo["color_indicador"],
-            anchor="e",
-            cursor="hand2",
-        )
-        lbl_icon.pack(expand=True, fill="both")
-
-        elementos_clic = [
-            card,
-            strip,
-            content,
-            top_frame,
-            lbl_check,
-            lbl_tit,
-            linea_div,
-            body_frame,
-            left_col,
-            lbl_val,
-            lbl_sub,
-            right_col,
-            lbl_icon,
+        elementos = [
+            card, top_frame, body_frame, val_frame,
+            lbl_check, lbl_tit, lbl_icon, lbl_val, lbl_sub, linea_separadora
         ]
-        for elem in elementos_clic:
-            elem.bind(
-                "<Button-1>", lambda event, c=clave: self.filtrar_por_metrica(c)
-            )
+        for elem in elementos:
+            elem.bind("<Button-1>", lambda event, c=clave: self.filtrar_por_metrica(c))
 
         self.tarjetas_widgets.append({
             "card": card,
-            "strip": strip,
-            "content": content,
-            "top_frame": top_frame,
-            "linea": linea_div,
-            "head": body_frame,
-            "left_col": left_col,
-            "right_col": right_col,
             "check": lbl_check,
             "tit": lbl_tit,
             "icon": lbl_icon,
             "val": lbl_val,
             "sub": lbl_sub,
-            "acento": color_acento,
+            "linea": linea_separadora,
             "clave": clave,
             "titulo_original": titulo,
         })
         return lbl_val
+    
+    def actualizar_estilo_tarjetas_kpi(self):
+        for i, card_info in enumerate(self.tarjetas_widgets):
+            clave_kpi = card_info["clave"]
+            esta_activa = self.filtro_metrica_activa == clave_kpi and clave_kpi != "TODOS"
+            estilo = obtener_estilo_kpi(self.modo_oscuro, i, esta_activa)
 
-    def validar_entrada_fecha(self, P, S):
-        """
-        P: Texto que resultaría si se acepta la modificación.
-        S: Carácter/texto insertado.
-        """
-        if P == "":
-            return True
-
-        # Permitir solo números y la barra '/'
-        if not all(c.isdigit() or c == "/" for c in S):
-            return False
-
-        # Formato completo DD/MM/AAAA no excede los 10 caracteres
-        if len(P) > 10:
-            return False
-
-        return True
-
-    def filtrar_por_metrica(self, clave):
-        if clave == "DESINCORPORADOS":
-            self.mostrar_ventana_desincorporados()
-            return
-
-        if self.filtro_metrica_activa == clave and clave != "TODOS":
-            self.filtro_metrica_activa = "TODOS"
-        else:
-            self.filtro_metrica_activa = clave
-
-        self.actualizar_estilo_tarjetas_kpi()
-        self.filtrar_tabla()
-
-    # --- VENTANA EMERGENTE PARA MOSTRAR EQUIPOS DESINCORPORADOS ---
-    def mostrar_ventana_desincorporados(self):
-        VentanaDesincorporados(self.root, self.PALETA, self.modo_oscuro)
-
-    def actualizar_metricas(self):
-        total = len(self.bienes)
-        operativos = 0
-        preventivos = 0
-        correctivos = 0
-        desincorporados = obtener_conteo_bajas()
-
-        for b in self.bienes:
-            mant = str(b.get("mantenimiento", "")).strip()
-            if "Preventivo" in mant:
-                preventivos += 1
-            elif "Correctivo" in mant:
-                correctivos += 1
-            else:
-                operativos += 1
-
-        self.lbl_val_total.config(text=str(total))
-        self.lbl_val_operativos.config(text=str(operativos))
-        self.lbl_val_preventivos.config(text=str(preventivos))
-        self.lbl_val_correctivos.config(text=str(correctivos))
-        self.lbl_val_desincorporados.config(text=str(desincorporados))
+            card_info["card"].configure(
+                fg_color=estilo["bg_tarjeta"],
+                border_color=estilo["borde_color"],
+                border_width=estilo["grosor_borde"],
+            )
+            card_info["check"].configure(
+                text="●" if esta_activa else "",
+                text_color=estilo["color_indicador"],
+            )
+            card_info["tit"].configure(text_color=estilo["color_acento"])
+            
+            # Asignar el color acento correspondiente de la métrica al ícono
+            card_info["icon"].configure(text_color=estilo["color_acento"])
+            
+            card_info["val"].configure(text_color=estilo["color_val"])
+            card_info["sub"].configure(text_color=estilo["color_sub"])
+            
+            # Asignar a la línea el mismo color de su respectiva métrica
+            if "linea" in card_info:
+                card_info["linea"].configure(fg_color=estilo["color_acento"])
 
     # --- FORMULARIO ---
     def crear_formulario(self):
-        self.frame_form = tk.LabelFrame(
-            self.root,
-            text=" Registrar Activo y Gestión de Mantenimiento ",
-            font=("Segoe UI", 9, "bold"),
-            bd=1,
-            relief="solid",
-        )
-        self.frame_form.grid(row=2, column=0, sticky="ew", padx=15, pady=5)
+        self.frame_form = ctk.CTkFrame(self.root, corner_radius=10)
+        # Reducimos los paddings verticales (pady=2) para recuperar espacio en la pantalla
+        self.frame_form.grid(row=2, column=0, sticky="ew", padx=15, pady=2)
         self.frame_form.columnconfigure(1, weight=1)
         self.frame_form.columnconfigure(3, weight=2)
         self.frame_form.columnconfigure(5, weight=1)
 
-        self.frames_form_internos = []
+        # Título superior antes del campo ID único
+        lbl_titulo_seccion = ctk.CTkLabel(
+            self.frame_form,
+            text=" REGISTRO Y EDICIÓN DE ACTIVOS",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text_color="#0284c7" if not self.modo_oscuro else "#38bdf8",
+            anchor="w"
+        )
+        lbl_titulo_seccion.grid(row=0, column=0, columnspan=6, padx=12, pady=(6, 2), sticky="w")
 
-        lbl1 = tk.Label(
-            self.frame_form, text="ID único:", font=("Segoe UI", 8, "bold")
+        # Fila 1: ID Único y Asignado a
+        lbl1 = ctk.CTkLabel(
+            self.frame_form,
+            text="ID único:",
+            font=ctk.CTkFont(size=11, weight="bold"),
         )
-        lbl1.grid(row=0, column=0, padx=(10, 5), pady=4, sticky="e")
-        self.entry_id = tk.Entry(
-            self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1
-        )
-        self.entry_id.grid(row=0, column=1, padx=5, pady=4, ipady=3, sticky="ew")
+        lbl1.grid(row=1, column=0, padx=(12, 5), pady=3, sticky="e")
 
-        lbl2 = tk.Label(
-            self.frame_form, text="Asignado a:", font=("Segoe UI", 8, "bold")
+        self.entry_id = ctk.CTkEntry(
+            self.frame_form, font=("Segoe UI", 11), height=28
         )
-        lbl2.grid(row=0, column=2, padx=(10, 5), pady=4, sticky="e")
+        self.entry_id.grid(row=1, column=1, padx=5, pady=3, sticky="ew")
+
+        lbl2 = ctk.CTkLabel(
+            self.frame_form,
+            text="Asignado a:",
+            font=ctk.CTkFont(size=11, weight="bold"),
+        )
+        lbl2.grid(row=1, column=2, padx=(10, 5), pady=3, sticky="e")
 
         opciones_asignacion = [
             "Departamento de Sistemas",
@@ -772,220 +472,166 @@ class InventarioBienesApp:
             "Laboratorio 1",
             "Rectorado",
         ]
-        self.combo_asignado = ttk.Combobox(
-            self.frame_form,
-            values=opciones_asignacion,
-            font=("Segoe UI", 9),
-            state="readonly",
-            style="TCombobox",
+        self.combo_asignado = ctk.CTkOptionMenu(
+            self.frame_form, values=opciones_asignacion, height=28
         )
         self.combo_asignado.grid(
-            row=0, column=3, columnspan=3, padx=5, pady=4, sticky="ew"
+            row=1, column=3, columnspan=3, padx=5, pady=3, sticky="ew"
         )
-        if opciones_asignacion:
-            self.combo_asignado.current(0)
 
-        frame_btn_form = tk.Frame(self.frame_form)
+        frame_btn_form = ctk.CTkFrame(self.frame_form, fg_color="transparent")
         frame_btn_form.grid(
-            row=0, column=6, rowspan=4, padx=(12, 8), pady=4, sticky="ns"
+            row=1, column=6, rowspan=4, padx=(10, 12), pady=3, sticky="ns"
         )
-        self.frames_form_internos.append(frame_btn_form)
 
-        tk.Button(
+        ctk.CTkButton(
             frame_btn_form,
             text="Registrar Nuevo",
-            bg="#0284C7",
-            fg="white",
-            font=("Segoe UI", 8, "bold"),
+            fg_color="#0284C7",
+            hover_color="#0369a1",
+            font=ctk.CTkFont(size=11, weight="bold"),
             command=self.agregar_bien,
-            bd=0,
-            padx=10,
-            pady=4,
-            cursor="hand2",
+            height=26,
         ).pack(fill="x", pady=2)
-        tk.Button(
+
+        ctk.CTkButton(
             frame_btn_form,
             text="Guardar Cambios",
-            bg="#059669",
-            fg="white",
-            font=("Segoe UI", 8, "bold"),
+            fg_color="#059669",
+            hover_color="#047857",
+            font=ctk.CTkFont(size=11, weight="bold"),
             command=self.actualizar_bien,
-            bd=0,
-            padx=10,
-            pady=4,
-            cursor="hand2",
+            height=26,
         ).pack(fill="x", pady=2)
-        tk.Button(
+
+        ctk.CTkButton(
             frame_btn_form,
             text="Limpiar Campos",
-            bg="#475569",
-            fg="white",
-            font=("Segoe UI", 8, "bold"),
+            fg_color="#475569",
+            hover_color="#334155",
+            font=ctk.CTkFont(size=11, weight="bold"),
             command=self.limpiar_formulario,
-            bd=0,
-            padx=10,
-            pady=3,
-            cursor="hand2",
+            height=26,
         ).pack(fill="x", pady=2)
 
-        lbl3 = tk.Label(
+        # Fila 2: Descripción / Nombre
+        lbl3 = ctk.CTkLabel(
             self.frame_form,
             text="Descripción / Nombre:",
-            font=("Segoe UI", 8, "bold"),
+            font=ctk.CTkFont(size=11, weight="bold"),
         )
-        lbl3.grid(row=1, column=0, padx=(10, 5), pady=4, sticky="e")
-        self.entry_nombre = tk.Entry(
-            self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1
+        lbl3.grid(row=2, column=0, padx=(12, 5), pady=3, sticky="e")
+
+        self.entry_nombre = ctk.CTkEntry(
+            self.frame_form, font=("Segoe UI", 11), height=28
         )
         self.entry_nombre.grid(
-            row=1, column=1, columnspan=5, padx=5, pady=4, ipady=3, sticky="ew"
+            row=2, column=1, columnspan=5, padx=5, pady=3, sticky="ew"
         )
 
-        lbl4 = tk.Label(
+        # Fila 3: Mantenimientos y Fechas
+        lbl4 = ctk.CTkLabel(
             self.frame_form,
             text="¿Mantenimiento?:",
-            font=("Segoe UI", 8, "bold"),
+            font=ctk.CTkFont(size=11, weight="bold"),
         )
-        lbl4.grid(row=2, column=0, padx=(10, 5), pady=4, sticky="e")
-        self.combo_mant = ttk.Combobox(
+        lbl4.grid(row=3, column=0, padx=(12, 5), pady=3, sticky="e")
+
+        self.combo_mant = ctk.CTkOptionMenu(
             self.frame_form,
             values=["No", "Sí (Preventivo)", "Sí (Correctivo)"],
-            font=("Segoe UI", 9),
-            width=15,
-            state="readonly",
+            height=28,
         )
-        self.combo_mant.current(0)
-        self.combo_mant.grid(row=2, column=1, padx=5, pady=4, sticky="w")
+        self.combo_mant.set("No")
+        self.combo_mant.grid(row=3, column=1, padx=5, pady=3, sticky="w")
 
-        lbl5 = tk.Label(
+        lbl5 = ctk.CTkLabel(
             self.frame_form,
             text="Fecha (DD/MM/AAAA):",
-            font=("Segoe UI", 8, "bold"),
+            font=ctk.CTkFont(size=11, weight="bold"),
         )
-        lbl5.grid(row=2, column=2, padx=(10, 5), pady=4, sticky="e")
-        # Registrar el comando de validación nativo de Tkinter
-        vcmd_fecha = (self.root.register(self.validar_entrada_fecha), "%P", "%S")
+        lbl5.grid(row=3, column=2, padx=(10, 5), pady=3, sticky="e")
 
-        self.entry_fecha_mant = tk.Entry(
-            self.frame_form,
-            font=("Segoe UI", 9),
-            relief="solid",
-            bd=1,
-            validate="key",             # Validar en cada pulsación de tecla
-            validatecommand=vcmd_fecha,  # Bloquea letras ANTES de renderizarlas
+        self.entry_fecha_mant = ctk.CTkEntry(
+            self.frame_form, font=("Segoe UI", 11), height=28
         )
         self.entry_fecha_mant.insert(0, date.today().strftime("%d/%m/%Y"))
-        self.entry_fecha_mant.grid(row=2, column=3, padx=5, pady=4, ipady=3, sticky="ew")
-
-        # Mantenemos el auto-formato con las barras al soltar la tecla
+        self.entry_fecha_mant.grid(row=3, column=3, padx=5, pady=3, sticky="ew")
         self.entry_fecha_mant.bind("<KeyRelease>", self.formatear_y_validar_fecha)
 
-        lbl6 = tk.Label(
+        lbl6 = ctk.CTkLabel(
             self.frame_form,
             text="Próximo (Hábil +3M):",
-            font=("Segoe UI", 8, "bold"),
+            font=ctk.CTkFont(size=11, weight="bold"),
         )
-        lbl6.grid(row=2, column=4, padx=(10, 5), pady=4, sticky="e")
-        self.entry_proximo = tk.Entry( 
-            self.frame_form, font=("Segoe UI", 9, "bold"), relief="solid", bd=1, state="readonly"
-        )
-        self.entry_proximo.grid(row=2, column=5, padx=5, pady=4, ipady=3, sticky="ew")
+        lbl6.grid(row=3, column=4, padx=(10, 5), pady=3, sticky="e")
 
-        lbl7 = tk.Label(
+        self.entry_proximo = ctk.CTkEntry(
+            self.frame_form,
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            height=28,
+            state="readonly",
+        )
+        self.entry_proximo.grid(row=3, column=5, padx=5, pady=3, sticky="ew")
+
+        # Fila 4: Detalle / Observación
+        lbl7 = ctk.CTkLabel(
             self.frame_form,
             text="Detalle / Observación:",
-            font=("Segoe UI", 8, "bold"),
+            font=ctk.CTkFont(size=11, weight="bold"),
         )
-        lbl7.grid(row=3, column=0, padx=(10, 5), pady=4, sticky="e")
-        self.entry_desc_mant = tk.Entry(
-            self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1
+        lbl7.grid(row=4, column=0, padx=(12, 5), pady=3, sticky="e")
+
+        self.entry_desc_mant = ctk.CTkEntry(
+            self.frame_form, font=("Segoe UI", 11), height=28
         )
         self.entry_desc_mant.grid(
-            row=3, column=1, columnspan=5, padx=5, pady=4, ipady=3, sticky="ew"
+            row=4, column=1, columnspan=5, padx=5, pady=(3, 6), sticky="ew"
         )
 
-        self.labels_texto.extend([lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7])
-        self.entries_widgets.extend([
-            self.entry_id,
-            self.entry_nombre,
-            self.entry_fecha_mant,
-            self.entry_desc_mant,
-        ])
-
-   # --- BÚSQUEDA ---
+    # --- BÚSQUEDA ---
     def crear_panel_busqueda(self):
-
-        t = "oscuro" if self.modo_oscuro else "claro"
-        pal = self.PALETA[t]
-
-        self.frame_busqueda = tk.Frame(
-            self.root, bg=pal["bg_root"]
-        )
+        self.frame_busqueda = ctk.CTkFrame(self.root, fg_color="transparent")
         self.frame_busqueda.grid(
             row=3, column=0, sticky="ew", padx=15, pady=(4, 2)
         )
 
-        self.lbl_lupa = tk.Label(
+        self.lbl_buscar = ctk.CTkLabel(
             self.frame_busqueda,
-            text="🔍",
-            font=("Segoe UI", 11),
-            fg=pal["fg_texto"],
-            bg=pal["bg_root"],
+            text="🔍 Buscar Activo:",
+            font=ctk.CTkFont(size=11, weight="bold"),
         )
-        self.lbl_lupa.pack(side="left", padx=(0, 2))
+        self.lbl_buscar.pack(side="left", padx=(0, 6))
 
-        self.lbl_buscar = tk.Label(
-            self.frame_busqueda,
-            text="Buscar Activo:",
-            font=("Segoe UI", 9, "bold"),
-            fg=pal["fg_texto"],
-            bg=pal["bg_root"],
+        self.entry_buscar = ctk.CTkEntry(
+            self.frame_busqueda, font=("Segoe UI", 11), width=240, height=28
         )
-        self.lbl_buscar.pack(side="left", padx=(0, 5))
-
-        self.entry_buscar = tk.Entry(
-            self.frame_busqueda,
-            font=("Segoe UI", 9),
-            relief="solid",
-            bd=1,
-            width=22,
-            bg="white" if not self.modo_oscuro else "#1e1e1e",
-            fg="black" if not self.modo_oscuro else "white",
-            insertbackground="black" if not self.modo_oscuro else "white",
-        )
-        self.entry_buscar.pack(side="left", padx=5, ipady=3)
+        self.entry_buscar.pack(side="left", padx=4)
         self.entry_buscar.bind("<KeyRelease>", self.filtrar_tabla)
-        self.entries_widgets.append(self.entry_buscar)
 
-        self.btn_limpiar_filtro = tk.Button(
+        self.btn_limpiar_filtro = ctk.CTkButton(
             self.frame_busqueda,
             text="Limpiar Filtro",
-            bg="#002B49",
-            fg="white",
-            font=("Segoe UI", 8, "bold"),
+            fg_color="#002B49",
+            hover_color="#001F35",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            height=28,
             command=self.limpiar_filtro_busqueda,
-            bd=0,
-            padx=8,
-            pady=3,
-            cursor="hand2",
         )
-        self.btn_limpiar_filtro.pack(side="left", padx=5)
+        self.btn_limpiar_filtro.pack(side="left", padx=6)
 
-        self.lbl_indicador_busqueda = tk.Label(
+        self.lbl_indicador_busqueda = ctk.CTkLabel(
             self.frame_busqueda,
             text="(Doble clic para editar / Clic derecho para opciones)",
-            font=("Segoe UI", 8, "bold"),
-            fg=pal["fg_subtexto"] if "fg_subtexto" in pal else pal["fg_texto"],
-            bg=pal["bg_root"],
+            font=ctk.CTkFont(size=10),
+            text_color="#94a3b8",
         )
         self.lbl_indicador_busqueda.pack(side="right")
 
     # --- TABLA DE DATOS Y MENÚ CONTEXTUAL ---
     def crear_tabla(self):
-        self.frame_tabla = tk.Frame(
-            self.root, bg=self.PALETA["claro"]["bg_root"]
-        )
-        self.frame_tabla.grid(row=4, column=0, sticky="nsew", padx=15, pady=4)
+        self.frame_tabla = ctk.CTkFrame(self.root, corner_radius=8)
+        self.frame_tabla.grid(row=4, column=0, sticky="nsew", padx=15, pady=(2, 2))
         self.frame_tabla.rowconfigure(0, weight=1)
         self.frame_tabla.columnconfigure(0, weight=1)
 
@@ -1007,59 +653,31 @@ class InventarioBienesApp:
         self.tabla.heading("fecha_mant", text="Última Fecha")
         self.tabla.heading("proximo_mant", text="Próxima Fecha (Hábil)")
 
-        self.tabla.column(
-            "id", width=70, minwidth=50, anchor="center", stretch=False
-        )
-        self.tabla.column(
-            "nombre", width=220, minwidth=150, anchor="w", stretch=True
-        )
-        self.tabla.column(
-            "asignado_a", width=140, minwidth=120, anchor="w", stretch=True
-        )
-        self.tabla.column(
-            "mantenimiento",
-            width=115,
-            minwidth=90,
-            anchor="center",
-            stretch=False,
-        )
-        self.tabla.column(
-            "fecha_mant",
-            width=100,
-            minwidth=85,
-            anchor="center",
-            stretch=False,
-        )
-        self.tabla.column(
-            "proximo_mant",
-            width=145,
-            minwidth=135,
-            anchor="center",
-            stretch=False,
-        )
+        self.tabla.column("id", width=75, minwidth=50, anchor="center", stretch=False)
+        self.tabla.column("nombre", width=220, minwidth=150, anchor="w", stretch=True)
+        self.tabla.column("asignado_a", width=140, minwidth=120, anchor="w", stretch=True)
+        self.tabla.column("mantenimiento", width=115, minwidth=90, anchor="center", stretch=False)
+        self.tabla.column("fecha_mant", width=100, minwidth=85, anchor="center", stretch=False)
+        self.tabla.column("proximo_mant", width=145, minwidth=135, anchor="center", stretch=False)
 
         self.tabla.bind("<Double-1>", self.cargar_seleccion_para_editar)
         self.tabla.bind("<Button-3>", self.mostrar_menu_contextual)
         self.tabla.bind("<Button-2>", self.mostrar_menu_contextual)
 
-        scrollbar = ttk.Scrollbar(
-            self.frame_tabla, orient="vertical", command=self.tabla.yview
-        )
+        scrollbar = ctk.CTkScrollbar(self.frame_tabla, command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=scrollbar.set)
 
-        self.tabla.grid(row=0, column=0, sticky="nsew")
-        scrollbar.grid(row=0, column=1, sticky="ns")
+        self.tabla.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
+        scrollbar.grid(row=0, column=1, sticky="ns", pady=2)
 
     def crear_menu_contextual(self):
         self.menu_contextual = tk.Menu(
             self.root, tearoff=0, font=("Segoe UI", 9)
         )
-
         self.menu_contextual.add_command(
             label="✏️ Editar Activo", command=self.cargar_seleccion_para_editar
         )
         self.menu_contextual.add_separator()
-
         self.menu_contextual.add_command(
             label="❌ Dar de Baja / Generar Acta PDF",
             command=self.dar_de_baja_bien,
@@ -1077,45 +695,37 @@ class InventarioBienesApp:
 
     # --- ACCIONES / PANEL INFERIOR ---
     def crear_panel_acciones(self):
-        self.frame_acciones = tk.Frame(
-            self.root, bg=self.PALETA["claro"]["bg_root"]
-        )
+        self.frame_acciones = ctk.CTkFrame(self.root, fg_color="transparent")
         self.frame_acciones.grid(
             row=5, column=0, sticky="ew", padx=15, pady=(2, 8)
         )
 
-        separador = ttk.Separator(self.frame_acciones, orient="horizontal")
-        separador.pack(fill="x", pady=(0, 6))
-
-        # Asignación a self.btn_centro_respaldos para control de estilo dinámico
-        self.btn_centro_respaldos = tk.Button(
+        self.btn_centro_respaldos = ctk.CTkButton(
             self.frame_acciones,
-            text="☁️ Centro de Respaldos",
-            font=("Segoe UI", 8, "bold"),
+            text="☁ Centro de Respaldos",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#0284c7",
+            hover_color="#0369a1",
+            height=30,
             command=self.abrir_ventana_respaldos,
-            bd=0,
-            padx=14,
-            pady=5,
-            cursor="hand2",
-            relief="flat",
         )
         self.btn_centro_respaldos.pack(side="left")
 
-        self.lbl_info_pie = tk.Label(
+        self.lbl_info_pie = ctk.CTkLabel(
             self.frame_acciones,
             text="SIGAR V2.5 — UNELLEZ",
-            font=("Segoe UI", 8, "bold"),
+            font=ctk.CTkFont(size=11, weight="bold"),
+            text_color="#94a3b8",
         )
         self.lbl_info_pie.pack(side="right", pady=3)
 
-    # --- VENTANA EMERGENTE DE RESPALDOS ---
     def abrir_ventana_respaldos(self):
         VentanaRespaldos(
-        self.root,
-        self.PALETA,
-        self.modo_oscuro,
-        obtener_bienes_callback=lambda: self.bienes,
-    )
+            self.root,
+            self.PALETA,
+            self.modo_oscuro,
+            obtener_bienes_callback=lambda: self.bienes,
+        )
 
     # --- LÓGICA CRUD Y OPERACIONES ---
     def agregar_bien(self):
@@ -1181,9 +791,7 @@ class InventarioBienesApp:
         try:
             id_int = int(id_val)
         except ValueError:
-            messagebox.showwarning(
-                "Tipo Incorrecto", "El ID debe ser numérico."
-            )
+            messagebox.showwarning("Tipo Incorrecto", "El ID debe ser numérico.")
             return
 
         nombre_val = self.entry_nombre.get().strip()
@@ -1200,9 +808,7 @@ class InventarioBienesApp:
             )
             return
 
-        index = next(
-            (i for i, b in enumerate(self.bienes) if b["id"] == id_int), None
-        )
+        index = next((i for i, b in enumerate(self.bienes) if b["id"] == id_int), None)
         if index is None:
             messagebox.showerror(
                 "No Encontrado",
@@ -1226,8 +832,7 @@ class InventarioBienesApp:
             self.limpiar_formulario()
             messagebox.showinfo(
                 "Actualización Exitosa",
-                f"Los datos del activo ID {id_int} han sido modificados"
-                " localmente.",
+                f"Los datos del activo ID {id_int} han sido modificados localmente.",
             )
 
     def dar_de_baja_bien(self):
@@ -1235,8 +840,7 @@ class InventarioBienesApp:
         if not seleccion:
             messagebox.showwarning(
                 "Sin Selección",
-                "Por favor, seleccione un elemento de la tabla para darlo de"
-                " baja.",
+                "Por favor, seleccione un elemento de la tabla para darlo de baja.",
             )
             return
 
@@ -1246,8 +850,7 @@ class InventarioBienesApp:
 
         motivo = simpledialog.askstring(
             "Justificación de Baja",
-            f"Indique el motivo por el cual se da de baja el activo ID"
-            f" {id_bien}:\n({nombre_bien})",
+            f"Indique el motivo por el cual se da de baja el activo ID {id_bien}:\n({nombre_bien})",
             parent=self.root,
         )
         if not motivo or not motivo.strip():
@@ -1255,32 +858,23 @@ class InventarioBienesApp:
 
         confirmacion = messagebox.askyesno(
             "Confirmar Desincorporación",
-            f"¿Está seguro de desincorporar el activo ID {id_bien}?\n\nMotivo:"
-            f" {motivo.strip()}",
+            f"¿Está seguro de desincorporar el activo ID {id_bien}?\n\nMotivo: {motivo.strip()}",
         )
         if confirmacion:
-            bien_objetivo = next(
-                (b for b in self.bienes if b["id"] == id_bien), None
-            )
+            bien_objetivo = next((b for b in self.bienes if b["id"] == id_bien), None)
             fecha_hora_baja = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
 
             registro_baja = {
                 "id": id_bien,
                 "nombre": nombre_bien,
                 "asignado_a": (
-                    bien_objetivo.get("asignado_a", "N/A")
-                    if bien_objetivo
-                    else "N/A"
+                    bien_objetivo.get("asignado_a", "N/A") if bien_objetivo else "N/A"
                 ),
                 "mantenimiento": (
-                    bien_objetivo.get("mantenimiento", "N/A")
-                    if bien_objetivo
-                    else "N/A"
+                    bien_objetivo.get("mantenimiento", "N/A") if bien_objetivo else "N/A"
                 ),
                 "fecha_ultimo_mant": (
-                    bien_objetivo.get("fecha_mant", "N/A")
-                    if bien_objetivo
-                    else "N/A"
+                    bien_objetivo.get("fecha_mant", "N/A") if bien_objetivo else "N/A"
                 ),
                 "desc_mant": (
                     bien_objetivo.get("desc_mant", "") if bien_objetivo else ""
@@ -1299,11 +893,48 @@ class InventarioBienesApp:
             self.limpiar_formulario()
             messagebox.showinfo(
                 "Baja Procesada",
-                f"El activo ID {id_bien} ha sido desincorporado.\n📄 Documento:"
-                f" {archivo_generado}",
+                f"El activo ID {id_bien} ha sido desincorporado.\n📄 Documento: {archivo_generado}",
             )
 
     # --- FILTRADO Y NAVEGACIÓN ---
+    def filtrar_por_metrica(self, clave):
+        if clave == "DESINCORPORADOS":
+            self.mostrar_ventana_desincorporados()
+            return
+
+        if self.filtro_metrica_activa == clave and clave != "TODOS":
+            self.filtro_metrica_activa = "TODOS"
+        else:
+            self.filtro_metrica_activa = clave
+
+        self.actualizar_estilo_tarjetas_kpi()
+        self.filtrar_tabla()
+
+    def mostrar_ventana_desincorporados(self):
+        VentanaDesincorporados(self.root, self.PALETA, self.modo_oscuro)
+
+    def actualizar_metricas(self):
+        total = len(self.bienes)
+        operativos = 0
+        preventivos = 0
+        correctivos = 0
+        desincorporados = obtener_conteo_bajas()
+
+        for b in self.bienes:
+            mant = str(b.get("mantenimiento", "")).strip()
+            if "Preventivo" in mant:
+                preventivos += 1
+            elif "Correctivo" in mant:
+                correctivos += 1
+            else:
+                operativos += 1
+
+        self.lbl_val_total.configure(text=str(total))
+        self.lbl_val_operativos.configure(text=str(operativos))
+        self.lbl_val_preventivos.configure(text=str(preventivos))
+        self.lbl_val_correctivos.configure(text=str(correctivos))
+        self.lbl_val_desincorporados.configure(text=str(desincorporados))
+
     def filtrar_tabla(self, event=None):
         criterio = self.entry_buscar.get().strip().lower()
         for item in self.tabla.get_children():
@@ -1393,15 +1024,11 @@ class InventarioBienesApp:
         self.entry_desc_mant.delete(0, tk.END)
         self.entry_fecha_mant.delete(0, tk.END)
         self.entry_fecha_mant.insert(0, date.today().strftime("%d/%m/%Y"))
-        self.combo_mant.current(0)
+        self.combo_mant.set("No")
         self.calcular_proxima_fecha_mantenimiento()
         self.entry_id.focus_force()
 
-    def al_cambiar_fecha(self, event=None):
-        self.calcular_proxima_fecha_mantenimiento()
-
     def formatear_y_validar_fecha(self, event=None):
-        # Ignorar teclas de navegación y borrado
         if event and event.keysym in (
             "BackSpace",
             "Delete",
@@ -1415,84 +1042,52 @@ class InventarioBienesApp:
             return
 
         texto_actual = self.entry_fecha_mant.get()
-
-        # Si ya tiene la longitud final completa, no formateamos más
         if len(texto_actual) == 10 and texto_actual.count("/") == 2:
             self.calcular_proxima_fecha_mantenimiento()
             return
 
-        # Dividimos por las barras que haya escrito el usuario
         partes = texto_actual.split("/")
-        
-        # Limpiamos cada parte dejando solo números
         dia = "".join(c for c in partes[0] if c.isdigit())[:2]
         mes = "".join(c for c in partes[1] if c.isdigit())[:2] if len(partes) > 1 else ""
         anio = "".join(c for c in partes[2] if c.isdigit())[:4] if len(partes) > 2 else ""
 
-        # Reconstruimos la fecha según el flujo de escritura
         fecha_formateada = dia
-
-        # AUTO-COMPLETAR o MANTENER BARRA 1
-        # Si el día tiene 2 dígitos o si el usuario escribió la primera barra
         if len(dia) == 2 or len(partes) > 1:
             fecha_formateada += "/" + mes
-
-        # AUTO-COMPLETAR o MANTENER BARRA 2
-        # Si el mes tiene 2 dígitos o si el usuario escribió la segunda barra
         if len(mes) == 2 or len(partes) > 2:
             fecha_formateada += "/" + anio
 
-        # Evitamos reescritura innecesaria si el texto ya coincide
         if texto_actual != fecha_formateada:
-            pos_cursor = self.entry_fecha_mant.index(tk.INSERT)
             self.entry_fecha_mant.delete(0, tk.END)
             self.entry_fecha_mant.insert(0, fecha_formateada)
-
-            # Reajuste inteligente de posición del cursor
-            diferencia = len(fecha_formateada) - len(texto_actual)
-            nueva_pos = pos_cursor + diferencia
-            self.entry_fecha_mant.icursor(max(0, nueva_pos))
 
         self.calcular_proxima_fecha_mantenimiento()
 
     def calcular_proxima_fecha_mantenimiento(self):
         fecha_str = self.entry_fecha_mant.get().strip()
-        t = "oscuro" if self.modo_oscuro else "claro"
-        
-        # Colores de estado normal (del tema actual)
-        bg_normal = self.PALETA[t]["bg_root"]
-        fg_normal = self.PALETA[t]["fg_texto"]
-        
-        # Colores de estado de error (Fondo y Texto según el tema)
-        if self.modo_oscuro:
-            bg_error = "#f9cece"  # Fondo rojo vino oscuro
-            fg_error = "#dc2626"  # Texto salmón/rojo claro
-        else:
-            bg_error = "#f9cece"  # Fondo rosa/rojo muy claro
-            fg_error = "#dc2626"  # Texto rojo oscuro intenso
-
-        # Habilitar temporalmente la edición para actualizar el contenido
-        self.entry_proximo.config(state="normal")
 
         for fmt in ("%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y"):
             try:
                 dt = datetime.strptime(fecha_str, fmt).date()
                 proxima_str = calcular_fecha_habil_3_meses(dt)
-                
-                # Restaurar colores normales cuando la fecha sea válida
-                self.entry_proximo.config(bg=bg_normal, fg=fg_normal, readonlybackground=bg_normal)
+
+                self.entry_proximo.configure(
+                    fg_color="#1e293b" if self.modo_oscuro else "#f8fafc",
+                    text_color="#f8fafc" if self.modo_oscuro else "#0f172a",
+                )
+                self.entry_proximo.configure(state="normal")
                 self.entry_proximo.delete(0, tk.END)
                 self.entry_proximo.insert(0, proxima_str)
-                self.entry_proximo.config(state="readonly")
+                self.entry_proximo.configure(state="readonly")
                 return proxima_str
             except ValueError:
                 pass
 
-        # Si el formato es inválido, aplicar colores de alerta y bloquear
-        self.entry_proximo.config(bg=bg_error, fg=fg_error, readonlybackground=bg_error)
+        self.entry_proximo.configure(fg_color="#f9cece", text_color="#dc2626")
+        self.entry_proximo.configure(state="normal")
         self.entry_proximo.delete(0, tk.END)
         self.entry_proximo.insert(0, "Formato Inválido")
-        self.entry_proximo.config(state="readonly")
+        self.entry_proximo.configure(state="readonly")
         return None
 
     def actualizar_tabla(self):
@@ -1502,6 +1097,6 @@ class InventarioBienesApp:
 os.chdir(obtener_ruta_base())
 
 if __name__ == "__main__":
-    root = tk.Tk()
+    root = ctk.CTk()
     app = InventarioBienesApp(root)
     root.mainloop()

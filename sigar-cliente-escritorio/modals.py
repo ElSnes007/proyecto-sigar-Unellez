@@ -1,278 +1,342 @@
 # -*- coding: utf-8 -*-
-from datetime import date
-import json
+import os
 import tkinter as tk
 from tkinter import filedialog, messagebox, ttk
 
+import customtkinter as ctk
+
 from database import (
-    URL_RESPALDO_CLOUD,
-    cargar_historial_bajas,
-    exportar_respaldo_nube_bd,
+    cargar_bajas_locales,
+    exportar_bd,
+    importar_bd,
+    restaurar_baja_local,
 )
-from utils import HAS_REQUESTS
 
 
-class VentanaDesincorporados(tk.Toplevel):
-    """
-    Ventana modal emergente para mostrar el historial de activos
-    que han sido dados de baja / desincorporados.
-    """
+class VentanaDesincorporados(ctk.CTkToplevel):
 
     def __init__(self, parent, paleta, modo_oscuro):
         super().__init__(parent)
         self.parent = parent
-        self.paleta = paleta
+        self.PALETA = paleta
         self.modo_oscuro = modo_oscuro
 
-        t = "oscuro" if self.modo_oscuro else "claro"
-        self.pal = self.paleta[t]
+        self.title("Histórico de Activos Desincorporados (Bajas)")
+        self.geometry("900x520")
+        self.minsize(750, 400)
 
-        self.title("SIGAR - Historial de Activos Desincorporados")
-        self.geometry("800x420")
-        self.configure(bg=self.pal["bg_root"])
+        # Hacer la ventana modal
         self.transient(parent)
         self.grab_set()
 
-        self._centrar_ventana()
-        self._construir_ui()
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=0)  # Encabezado
+        self.rowconfigure(1, weight=1)  # Tabla
+        self.rowconfigure(2, weight=0)  # Acciones / Leyenda
 
-    def _centrar_ventana(self):
-        self.update_idletasks()
-        w = self.winfo_width()
-        h = self.winfo_height()
-        x = (self.winfo_screenwidth() // 2) - (w // 2)
-        y = (self.winfo_screenheight() // 2) - (h // 2)
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.bajas_data = []
 
-    def _construir_ui(self):
-        lbl_titulo = tk.Label(
-            self,
-            text="❌ REGISTRO DE ACTAS DE DESINCORPORACIÓN Y BAJA",
-            font=("Segoe UI", 11, "bold"),
-            fg="#dc2626",
-            bg=self.pal["bg_root"],
-            pady=10,
+        self.crear_encabezado()
+        self.crear_tabla()
+        self.crear_panel_acciones()
+        self.aplicar_tema()
+        self.cargar_datos()
+
+    def crear_encabezado(self):
+        self.frame_head = ctk.CTkFrame(self, fg_color="#002B49", corner_radius=0, height=50)
+        self.frame_head.grid(row=0, column=0, sticky="ew")
+        self.frame_head.pack_propagate(False)
+
+        lbl_tit = ctk.CTkLabel(
+            self.frame_head,
+            text="❌ Registro de Bienes Desincorporados",
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            text_color="#ffffff",
         )
-        lbl_titulo.pack()
+        lbl_tit.pack(side="left", padx=15, pady=10)
 
-        frame_tabla_bajas = tk.Frame(self, bg=self.pal["bg_root"])
-        frame_tabla_bajas.pack(fill="both", expand=True, padx=15, pady=(0, 15))
+    def crear_tabla(self):
+        self.frame_tabla = ctk.CTkFrame(self, corner_radius=8)
+        self.frame_tabla.grid(row=1, column=0, sticky="nsew", padx=15, pady=10)
+        self.frame_tabla.rowconfigure(0, weight=1)
+        self.frame_tabla.columnconfigure(0, weight=1)
 
-        cols = ("id", "nombre", "asignado_a", "fecha_baja", "motivo")
-        tabla_bajas = ttk.Treeview(
-            frame_tabla_bajas, columns=cols, show="headings"
+        cols = ("id", "nombre", "asignado_a", "motivo", "fecha_baja")
+        self.tabla = ttk.Treeview(
+            self.frame_tabla, columns=cols, show="headings", selectmode="browse"
         )
 
-        tabla_bajas.heading("id", text="ID Activo")
-        tabla_bajas.heading("nombre", text="Descripción / Bien")
-        tabla_bajas.heading("asignado_a", text="Asignación Previa")
-        tabla_bajas.heading("fecha_baja", text="Fecha Procesamiento")
-        tabla_bajas.heading("motivo", text="Motivo / Justificación")
+        self.tabla.heading("id", text="ID Activo")
+        self.tabla.heading("nombre", text="Descripción del Bien")
+        self.tabla.heading("asignado_a", text="Última Asignación")
+        self.tabla.heading("motivo", text="Justificación / Motivo de Baja")
+        self.tabla.heading("fecha_baja", text="Fecha de Desincorporación")
 
-        tabla_bajas.column("id", width=70, anchor="center")
-        tabla_bajas.column("nombre", width=200, anchor="w")
-        tabla_bajas.column("asignado_a", width=140, anchor="w")
-        tabla_bajas.column("fecha_baja", width=130, anchor="center")
-        tabla_bajas.column("motivo", width=220, anchor="w")
+        self.tabla.column("id", width=70, anchor="center", stretch=False)
+        self.tabla.column("nombre", width=200, anchor="w", stretch=True)
+        self.tabla.column("asignado_a", width=140, anchor="w", stretch=True)
+        self.tabla.column("motivo", width=230, anchor="w", stretch=True)
+        self.tabla.column("fecha_baja", width=130, anchor="center", stretch=False)
 
-        scroll_bajas = ttk.Scrollbar(
-            frame_tabla_bajas, orient="vertical", command=tabla_bajas.yview
+        scrollbar = ctk.CTkScrollbar(self.frame_tabla, command=self.tabla.yview)
+        self.tabla.configure(yscrollcommand=scrollbar.set)
+
+        self.tabla.grid(row=0, column=0, sticky="nsew", padx=2, pady=2)
+        scrollbar.grid(row=0, column=1, sticky="ns", pady=2)
+
+    def crear_panel_acciones(self):
+        self.frame_acciones = ctk.CTkFrame(self, fg_color="transparent")
+        self.frame_acciones.grid(row=2, column=0, sticky="ew", padx=15, pady=(0, 15))
+
+        self.btn_reincorporar = ctk.CTkButton(
+            self.frame_acciones,
+            text="♻ Restaurar / Reincorporar Activo",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#059669",
+            hover_color="#047857",
+            height=32,
+            command=self.reincorporar_bien,
         )
-        tabla_bajas.configure(yscrollcommand=scroll_bajas.set)
+        self.btn_reincorporar.pack(side="left")
 
-        tabla_bajas.pack(side="left", fill="both", expand=True)
-        scroll_bajas.pack(side="right", fill="y")
+        self.btn_cerrar = ctk.CTkButton(
+            self.frame_acciones,
+            text="Cerrar",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#475569",
+            hover_color="#334155",
+            height=32,
+            command=self.destroy,
+        )
+        self.btn_cerrar.pack(side="right")
 
-        lista_bajas = cargar_historial_bajas()
-        for i, reg in enumerate(lista_bajas):
-            tag_fila = "par" if i % 2 == 0 else "impar"
-            tabla_bajas.insert(
+    def aplicar_tema(self):
+        tree_bg = "#1e293b" if self.modo_oscuro else "#ffffff"
+        tree_fg = "#f8fafc" if self.modo_oscuro else "#0f172a"
+        head_bg = "#0f172a" if self.modo_oscuro else "#e2e8f0"
+        head_fg = "#38bdf8" if self.modo_oscuro else "#0284c7"
+        tree_bg_odd = "#0f172a" if self.modo_oscuro else "#f8fafc"
+
+        style = ttk.Style()
+        style.theme_use("clam")
+        style.configure(
+            "Treeview",
+            background=tree_bg,
+            foreground=tree_fg,
+            fieldbackground=tree_bg,
+            font=("Segoe UI", 9),
+            rowheight=28,
+            borderwidth=0,
+        )
+        style.map(
+            "Treeview",
+            background=[("selected", "#0284c7")],
+            foreground=[("selected", "#ffffff")],
+        )
+        style.configure(
+            "Treeview.Heading",
+            background=head_bg,
+            foreground=head_fg,
+            font=("Segoe UI", 9, "bold"),
+            relief="flat",
+        )
+
+        self.tabla.tag_configure("par", background=tree_bg, foreground=tree_fg)
+        self.tabla.tag_configure("impar", background=tree_bg_odd, foreground=tree_fg)
+
+    def cargar_datos(self):
+        for item in self.tabla.get_children():
+            self.tabla.delete(item)
+
+        self.bajas_data = cargar_bajas_locales()
+        for i, b in enumerate(self.bajas_data):
+            tag = "par" if i % 2 == 0 else "impar"
+            self.tabla.insert(
                 "",
                 "end",
                 values=(
-                    reg.get("id", "N/A"),
-                    reg.get("nombre", "N/A"),
-                    reg.get("asignado_a", "N/A"),
-                    reg.get("fecha_baja", "N/A"),
-                    reg.get("motivo_baja", "Sin justificación"),
+                    b.get("id", "N/A"),
+                    b.get("nombre", "N/A"),
+                    b.get("asignado_a", "N/A"),
+                    b.get("motivo_baja", "N/A"),
+                    b.get("fecha_baja", "N/A"),
                 ),
-                tags=(tag_fila,),
+                tags=(tag,),
             )
 
-        if not lista_bajas:
-            lbl_vacio = tk.Label(
-                self,
-                text="No hay actas de desincorporación registradas.",
-                font=("Segoe UI", 9, "italic"),
-                fg=self.pal["fg_subtexto"],
-                bg=self.pal["bg_root"],
+    def reincorporar_bien(self):
+        selection = self.tabla.selection()
+        if not selection:
+            messagebox.showwarning(
+                "Sin Selección",
+                "Seleccione un activo desincorporado para restaurar al inventario principal.",
+                parent=self,
             )
-            lbl_vacio.pack(pady=10)
+            return
+
+        item = self.tabla.item(selection[0])
+        id_bien = int(item["values"][0])
+
+        confirm = messagebox.askyesno(
+            "Confirmar Restauración",
+            f"¿Desea reincorporar el activo ID {id_bien} al inventario activo?",
+            parent=self,
+        )
+        if confirm:
+            exito, msj = restaurar_baja_local(id_bien)
+            if exito:
+                messagebox.showinfo("Éxito", msj, parent=self)
+                self.cargar_datos()
+                # Refrescar la vista en la ventana principal si tiene la función asignada
+                if hasattr(self.parent, "bienes"):
+                    from database import cargar_datos_locales
+
+                    self.parent.bienes = cargar_datos_locales()
+                    if hasattr(self.parent, "actualizar_tabla"):
+                        self.parent.actualizar_tabla()
+                    if hasattr(self.parent, "actualizar_metricas"):
+                        self.parent.actualizar_metricas()
+            else:
+                messagebox.showerror("Error", msj, parent=self)
 
 
-class VentanaRespaldos(tk.Toplevel):
-    """
-    Ventana modal emergente para gestionar respaldos locales y sincronización
-    con la nube.
-    """
+class VentanaRespaldos(ctk.CTkToplevel):
 
-    def __init__(self, parent, paleta, modo_oscuro, obtener_bienes_callback):
+    def __init__(self, parent, paleta, modo_oscuro, obtener_bienes_callback=None):
         super().__init__(parent)
         self.parent = parent
-        self.paleta = paleta
+        self.PALETA = paleta
         self.modo_oscuro = modo_oscuro
-        self.obtener_bienes = obtener_bienes_callback
+        self.obtener_bienes_callback = obtener_bienes_callback
 
-        t = "oscuro" if self.modo_oscuro else "claro"
-        self.pal = self.paleta[t]
-
-        self.title("Gestión y Centro de Respaldos")
-        self.geometry("420x280")
+        self.title("Centro de Respaldos y Migración de Base de Datos")
+        self.geometry("520x360")
         self.resizable(False, False)
-        self.configure(bg=self.pal["bg_root"])
+
         self.transient(parent)
         self.grab_set()
 
-        self._centrar_ventana()
-        self._construir_ui()
+        self.columnconfigure(0, weight=1)
+        self.rowconfigure(0, weight=0)  # Cabecera
+        self.rowconfigure(1, weight=1)  # Cuerpo de Opciones
 
-    def _centrar_ventana(self):
-        self.update_idletasks()
-        w = self.winfo_width()
-        h = self.winfo_height()
-        x = (self.winfo_screenwidth() // 2) - (w // 2)
-        y = (self.winfo_screenheight() // 2) - (h // 2)
-        self.geometry(f"{w}x{h}+{x}+{y}")
+        self.crear_encabezado()
+        self.crear_cuerpo()
 
-    def _construir_ui(self):
-        lbl_titulo = tk.Label(
-            self,
-            text="☁️ Sincronización y Respaldos",
-            font=("Segoe UI", 12, "bold"),
-            fg=self.pal["fg_texto"],
-            bg=self.pal["bg_root"],
+    def crear_encabezado(self):
+        self.frame_head = ctk.CTkFrame(self, fg_color="#002B49", corner_radius=0, height=50)
+        self.frame_head.grid(row=0, column=0, sticky="ew")
+        self.frame_head.pack_propagate(False)
+
+        lbl_tit = ctk.CTkLabel(
+            self.frame_head,
+            text="☁ Centro de Respaldos de Información",
+            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
+            text_color="#ffffff",
         )
-        lbl_titulo.pack(pady=(15, 5))
+        lbl_tit.pack(side="left", padx=15, pady=10)
 
-        lbl_sub = tk.Label(
-            self,
-            text="Seleccione la acción de respaldo que desea ejecutar:",
-            font=("Segoe UI", 8),
-            fg=self.pal["fg_subtexto"],
-            bg=self.pal["bg_root"],
+    def crear_cuerpo(self):
+        self.frame_content = ctk.CTkFrame(self, corner_radius=10)
+        self.frame_content.grid(row=1, column=0, sticky="nsew", padx=20, pady=20)
+        self.frame_content.columnconfigure(0, weight=1)
+
+        lbl_instruccion = ctk.CTkLabel(
+            self.frame_content,
+            text="Gestione las copias de seguridad locales del sistema SIGAR:",
+            font=ctk.CTkFont(size=11, weight="bold"),
         )
-        lbl_sub.pack(pady=(0, 15))
+        lbl_instruccion.pack(anchor="w", padx=15, pady=(15, 10))
 
-        frame_botones = tk.Frame(self, bg=self.pal["bg_root"])
-        frame_botones.pack(fill="both", expand=True, padx=25, pady=5)
+        # Sección Exportar
+        frame_exp = ctk.CTkFrame(self.frame_content, fg_color="transparent")
+        frame_exp.pack(fill="x", padx=15, pady=5)
 
-        btn_nube = tk.Button(
-            frame_botones,
-            text="☁️ Exportar / Guardar Respaldo en la Nube",
-            bg="#0284C7",
-            fg="white",
-            activebackground="#0369a1",
-            activeforeground="white",
-            font=("Segoe UI", 9, "bold"),
-            bd=0,
-            pady=8,
-            cursor="hand2",
-            command=self.accion_guardar_nube,
+        lbl_exp_desc = ctk.CTkLabel(
+            frame_exp,
+            text="• Generar una copia de respaldo completa (JSON):",
+            font=ctk.CTkFont(size=10),
         )
-        btn_nube.pack(fill="x", pady=4)
+        lbl_exp_desc.pack(anchor="w", pady=(0, 2))
 
-        btn_importar = tk.Button(
-            frame_botones,
-            text="📥 Importar / Restaurar desde la Nube",
-            bg="#0D9488",
-            fg="white",
-            activebackground="#0F766E",
-            activeforeground="white",
-            font=("Segoe UI", 9, "bold"),
-            bd=0,
-            pady=8,
-            cursor="hand2",
-            command=self.accion_importar_nube,
+        btn_exportar = ctk.CTkButton(
+            frame_exp,
+            text="📤 Exportar Respaldo Local",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#0284c7",
+            hover_color="#0369a1",
+            height=32,
+            command=self.exportar_respaldo,
         )
-        btn_importar.pack(fill="x", pady=4)
+        btn_exportar.pack(fill="x")
 
-        btn_local = tk.Button(
-            frame_botones,
-            text="💾 Guardar Respaldo Local (Copiar JSON)",
-            bg="#475569",
-            fg="white",
-            activebackground="#334155",
-            activeforeground="white",
-            font=("Segoe UI", 9, "bold"),
-            bd=0,
-            pady=8,
-            cursor="hand2",
-            command=self.accion_guardar_local,
+        # Separador
+        ctk.CTkFrame(self.frame_content, height=1, fg_color="#334155").pack(
+            fill="x", padx=15, pady=12
         )
-        btn_local.pack(fill="x", pady=4)
 
-    def accion_guardar_nube(self):
-        if not HAS_REQUESTS:
-            messagebox.showinfo(
-                "Librería Pendiente",
-                "Se requiere la librería 'requests' instalada para enviar datos"
-                " a la API.",
-                parent=self,
-            )
-            return
+        # Sección Importar
+        frame_imp = ctk.CTkFrame(self.frame_content, fg_color="transparent")
+        frame_imp.pack(fill="x", padx=15, pady=5)
 
-        exportar_respaldo_nube_bd(parent_window=self)
-        messagebox.showinfo(
-            "Conexión Backend",
-            "Frontend preparado para enviar datos al servidor"
-            f" API:\n\nEndpoint: {URL_RESPALDO_CLOUD}\n\nEstructura JSON lista.",
+        lbl_imp_desc = ctk.CTkLabel(
+            frame_imp,
+            text="• Importar base de datos desde un archivo JSON externo:",
+            font=ctk.CTkFont(size=10),
+        )
+        lbl_imp_desc.pack(anchor="w", pady=(0, 2))
+
+        btn_importar = ctk.CTkButton(
+            frame_imp,
+            text="📥 Importar Base de Datos",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#d97706",
+            hover_color="#b45309",
+            height=32,
+            command=self.importar_respaldo,
+        )
+        btn_importar.pack(fill="x")
+
+    def exportar_respaldo(self):
+        ruta = filedialog.asksaveasfilename(
+            parent=self,
+            title="Guardar Respaldo de Base de Datos",
+            defaultextension=".json",
+            filetypes=[("Archivos JSON", "*.json"), ("Todos los archivos", "*.*")],
+        )
+        if ruta:
+            exito, msj = exportar_bd(ruta)
+            if exito:
+                messagebox.showinfo("Respaldo Exitoso", msj, parent=self)
+            else:
+                messagebox.showerror("Error al Exportar", msj, parent=self)
+
+    def importar_respaldo(self):
+        confirmacion = messagebox.askyesno(
+            "Advertencia de Sobrescritura",
+            "ADVERTENCIA: Importar un nuevo archivo reemplazará los datos actuales.\n\n¿Desea continuar?",
             parent=self,
         )
-
-    def accion_importar_nube(self):
-        if not HAS_REQUESTS:
-            messagebox.showinfo(
-                "Librería Pendiente",
-                "Se requiere la librería 'requests' instalada para recibir"
-                " datos de la API.",
-                parent=self,
-            )
+        if not confirmacion:
             return
 
-        messagebox.showinfo(
-            "Conexión Backend",
-            "Frontend preparado para consultar e importar datos desde la"
-            f" API:\n\nEndpoint: {URL_RESPALDO_CLOUD}",
+        ruta = filedialog.askopenfilename(
             parent=self,
+            title="Seleccionar Archivo de Respaldo JSON",
+            filetypes=[("Archivos JSON", "*.json"), ("Todos los archivos", "*.*")],
         )
+        if ruta:
+            exito, msj = importar_bd(ruta)
+            if exito:
+                messagebox.showinfo("Importación Exitosa", msj, parent=self)
+                if hasattr(self.parent, "bienes"):
+                    from database import cargar_datos_locales
 
-    def accion_guardar_local(self):
-        try:
-            filename = filedialog.asksaveasfilename(
-                parent=self,
-                title="Guardar Respaldo Local",
-                defaultextension=".json",
-                filetypes=[
-                    ("Archivos JSON", "*.json"),
-                    ("Todos los archivos", "*.*"),
-                ],
-                initialfile=(
-                    f"respaldo_sigar_{date.today().strftime('%Y%m%d')}.json"
-                ),
-            )
-            if filename:
-                bienes = self.obtener_bienes()
-                with open(filename, "w", encoding="utf-8") as f:
-                    json.dump(bienes, f, ensure_ascii=False, indent=4)
-                messagebox.showinfo(
-                    "Respaldo Guardado",
-                    "El respaldo local ha sido guardado exitosamente"
-                    f" en:\n{filename}",
-                    parent=self,
-                )
-        except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"No se pudo guardar el respaldo local: {e}",
-                parent=self,
-            )
+                    self.parent.bienes = cargar_datos_locales()
+                    if hasattr(self.parent, "actualizar_tabla"):
+                        self.parent.actualizar_tabla()
+                    if hasattr(self.parent, "actualizar_metricas"):
+                        self.parent.actualizar_metricas()
+                self.destroy()
+            else:
+                messagebox.showerror("Error al Importar", msj, parent=self)

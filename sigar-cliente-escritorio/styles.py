@@ -7,8 +7,8 @@ import tkinter as tk
 CONFIG_FILE = "config.json"
 
 
-# Función para obtener la ruta física de persistencia (evita la carpeta temporal sys._MEIPASS)
 def obtener_ruta_guardado():
+    """Obtiene la ruta física de persistencia evitando la carpeta temporal sys._MEIPASS."""
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
@@ -18,7 +18,7 @@ ARCHIVO_PREFERENCIAS = os.path.join(
     obtener_ruta_guardado(), "config_app.json"
 )
 
-# Tipografías globales modernas
+# Tipografías globales
 FONT_TITLE = ("Segoe UI", 10, "bold")
 FONT_LABEL = ("Segoe UI", 9)
 FONT_BOLD = ("Segoe UI", 9, "bold")
@@ -46,42 +46,42 @@ PALETA = {
                 "bg": "#ffffff",
                 "active_bg": "#f1f5f9",
                 "border": "#cbd5e1",
-                "active_border": "#334155",
-                "text": "#334155",
+                "active_border": "#0284c7",
+                "text": "#0369a1",
                 "val": "#0f172a",
                 "sub": "#64748b",
             },
             {
-                "bg": "#f0fdf4",
-                "active_bg": "#dcfce7",
-                "border": "#bbf7d0",
-                "active_border": "#15803d",
+                "bg": "#ffffff",
+                "active_bg": "#f0fdf4",
+                "border": "#cbd5e1",
+                "active_border": "#16a34a",
                 "text": "#15803d",
                 "val": "#166534",
                 "sub": "#166534",
             },
             {
-                "bg": "#f0f9ff",
-                "active_bg": "#e0f2fe",
-                "border": "#bae6fd",
+                "bg": "#ffffff",
+                "active_bg": "#f0f9ff",
+                "border": "#cbd5e1",
                 "active_border": "#0284c7",
                 "text": "#0369a1",
                 "val": "#075985",
                 "sub": "#0369a1",
             },
             {
-                "bg": "#fffbeb",
-                "active_bg": "#fef3c7",
-                "border": "#fde68a",
+                "bg": "#ffffff",
+                "active_bg": "#fffbeb",
+                "border": "#cbd5e1",
                 "active_border": "#d97706",
                 "text": "#b45309",
                 "val": "#92400e",
                 "sub": "#b45309",
             },
             {
-                "bg": "#fef2f2",
-                "active_bg": "#fee2e2",
-                "border": "#fecaca",
+                "bg": "#ffffff",
+                "active_bg": "#fef2f2",
+                "border": "#cbd5e1",
                 "active_border": "#dc2626",
                 "text": "#b91c1c",
                 "val": "#991b1b",
@@ -91,7 +91,7 @@ PALETA = {
     },
     "oscuro": {
         "bg_root": "#0f172a",
-        "bg_cintillo": "#020617",
+        "bg_cintillo": "#001F35",
         "fg_cintillo": "#f8fafc",
         "bg_panel": "#1e293b",
         "fg_texto": "#f8fafc",
@@ -109,79 +109,70 @@ PALETA = {
                 "bg": "#1e293b",
                 "active_bg": "#334155",
                 "border": "#334155",
-                "active_border": "#94a3b8",
+                "active_border": "#38bdf8",
                 "text": "#cbd5e1",
                 "val": "#ffffff",
                 "sub": "#94a3b8",
             },
             {
-                "bg": "#064e3b",
-                "active_bg": "#047857",
-                "border": "#047857",
-                "active_border": "#34d399",
-                "text": "#6ee7b7",
+                "bg": "#1e293b",
+                "active_bg": "#064e3b",
+                "border": "#334155",
+                "active_border": "#22c55e",
+                "text": "#4ade80",
                 "val": "#ffffff",
-                "sub": "#a7f3d0",
+                "sub": "#86efac",
             },
             {
-                "bg": "#0c4a6e",
-                "active_bg": "#0369a1",
-                "border": "#0369a1",
+                "bg": "#1e293b",
+                "active_bg": "#0c4a6e",
+                "border": "#334155",
                 "active_border": "#38bdf8",
-                "text": "#7dd3fc",
+                "text": "#38bdf8",
                 "val": "#ffffff",
-                "sub": "#bae6fd",
+                "sub": "#7dd3fc",
             },
             {
-                "bg": "#78350f",
-                "active_bg": "#b45309",
-                "border": "#b45309",
-                "active_border": "#fbbf24",
-                "text": "#fde047",
+                "bg": "#1e293b",
+                "active_bg": "#451a03",
+                "border": "#334155",
+                "active_border": "#f59e0b",
+                "text": "#fbbf24",
                 "val": "#ffffff",
-                "sub": "#fef08a",
+                "sub": "#fde047",
             },
             {
-                "bg": "#7f1d1d",
-                "active_bg": "#b91c1c",
-                "border": "#b91c1c",
-                "active_border": "#f87171",
-                "text": "#fca5a5",
+                "bg": "#1e293b",
+                "active_bg": "#450a0a",
+                "border": "#334155",
+                "active_border": "#ef4444",
+                "text": "#f87171",
                 "val": "#ffffff",
-                "sub": "#fecaca",
+                "sub": "#fca5a5",
             },
         ],
     },
 }
 
-# Agregar al final de styles.py
 
 def obtener_estilo_kpi(modo_oscuro, índice, esta_activa):
-    """
-    Retorna un diccionario con todas las propiedades visuales necesarias
-    para renderizar una tarjeta KPI según el estado y tema actual.
-    """
+    """Retorna las propiedades visuales necesarias para renderizar una tarjeta KPI."""
     t = "oscuro" if modo_oscuro else "claro"
     cfg = PALETA[t]["kpis"][índice]
-    color_acento = cfg["text"]
 
     bg_tarjeta = cfg["active_bg"] if esta_activa else cfg["bg"]
     borde_color = cfg["active_border"] if esta_activa else cfg["border"]
-    grosor_borde = 3 if esta_activa else 1
-    padx_comp = 6 if esta_activa else 8
-    pady_comp = 4 if esta_activa else 6
 
     return {
         "bg_tarjeta": bg_tarjeta,
         "borde_color": borde_color,
-        "grosor_borde": grosor_borde,
-        "padx": padx_comp,
-        "pady": pady_comp,
-        "color_acento": color_acento,
+        "grosor_borde": 2 if esta_activa else 1,
+        "color_acento": cfg["text"],
         "color_sub": cfg["sub"],
         "color_val": cfg["val"],
-        "color_indicador": borde_color if esta_activa else color_acento,
+        "color_indicador": borde_color if esta_activa else cfg["text"],
     }
+
 
 def cargar_preferencia_tema():
     if os.path.exists(ARCHIVO_PREFERENCIAS):
