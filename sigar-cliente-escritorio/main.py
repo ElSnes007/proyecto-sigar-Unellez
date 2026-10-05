@@ -6,6 +6,7 @@ import ctypes
 import tkinter as tk
 from tkinter import filedialog, messagebox, simpledialog, ttk
 from login import AuthApp  # Importación directa del módulo
+from modals import VentanaDesincorporados, VentanaRespaldos
 
 try:
     # Hace que la aplicación sea DPI Aware en Windows
@@ -63,6 +64,7 @@ from styles import (
     cargar_preferencia_tema,
     guardar_preferencia_tema,
     hex_a_rgb,
+    obtener_estilo_kpi,  # <-- Agregar aquí
     rgb_a_hex,
 )
 from utils import (
@@ -450,77 +452,65 @@ class InventarioBienesApp:
             )
 
     def actualizar_estilo_tarjetas_kpi(self):
-        t = "oscuro" if self.modo_oscuro else "claro"
-        pal = self.PALETA[t]
-
         for i, card_info in enumerate(getattr(self, "tarjetas_widgets", [])):
-            cfg = pal["kpis"][i]
             clave_kpi = card_info["clave"]
             titulo_base = card_info["titulo_original"]
-            color_acento = cfg["text"]
-
             esta_activa = (
                 self.filtro_metrica_activa == clave_kpi and clave_kpi != "TODOS"
             )
 
-            bg_tarjeta = cfg["active_bg"] if esta_activa else cfg["bg"]
-            borde_color = cfg["active_border"] if esta_activa else cfg["border"]
-
-            grosor_borde = 3 if esta_activa else 1
-            padx_comp = 6 if esta_activa else 8
-            pady_comp = 4 if esta_activa else 6
+            # Obtener el paquete de estilos listo desde styles.py
+            estilo = obtener_estilo_kpi(self.modo_oscuro, i, esta_activa)
 
             card_info["card"].config(
-                bg=bg_tarjeta,
-                highlightbackground=borde_color,
-                highlightcolor=borde_color,
-                highlightthickness=grosor_borde,
+                bg=estilo["bg_tarjeta"],
+                highlightbackground=estilo["borde_color"],
+                highlightcolor=estilo["borde_color"],
+                highlightthickness=estilo["grosor_borde"],
             )
             card_info["strip"].config(
-                bg=color_acento if not esta_activa else borde_color
+                bg=estilo["color_acento"] if not esta_activa else estilo["borde_color"]
             )
-
             card_info["content"].config(
-                bg=bg_tarjeta, padx=padx_comp, pady=pady_comp
+                bg=estilo["bg_tarjeta"], padx=estilo["padx"], pady=estilo["pady"]
             )
 
             if "top_frame" in card_info:
-                card_info["top_frame"].config(bg=bg_tarjeta)
+                card_info["top_frame"].config(bg=estilo["bg_tarjeta"])
             if "left_col" in card_info:
-                card_info["left_col"].config(bg=bg_tarjeta)
+                card_info["left_col"].config(bg=estilo["bg_tarjeta"])
             if "right_col" in card_info:
-                card_info["right_col"].config(bg=bg_tarjeta)
-            card_info["head"].config(bg=bg_tarjeta)
+                card_info["right_col"].config(bg=estilo["bg_tarjeta"])
+            card_info["head"].config(bg=estilo["bg_tarjeta"])
 
             if "linea" in card_info:
                 card_info["linea"].config(
-                    bg=borde_color if esta_activa else color_acento
+                    bg=estilo["borde_color"] if esta_activa else estilo["color_acento"]
                 )
 
-            # Configuración del Check Independiente
+            # Check / Indicador separado
             if "check" in card_info:
                 card_info["check"].config(
-                    text="●" if esta_activa else "",      # Se muestra solo si la tarjeta está activa
-                    bg=bg_tarjeta,
-                    fg=borde_color if esta_activa else color_acento,
-                    font=("Consolas", 15, "bold")         # Tamaño y fuente independiente
+                    text="●" if esta_activa else "",
+                    bg=estilo["bg_tarjeta"],
+                    fg=estilo["color_indicador"],
+                    font=("Consolas", 15, "bold"),
                 )
 
-            # Título limpio sin añadir caracteres Unicode pegados
             card_info["tit"].config(
                 text=titulo_base,
-                bg=bg_tarjeta,
-                fg=borde_color if esta_activa else color_acento,
+                bg=estilo["bg_tarjeta"],
+                fg=estilo["color_indicador"],
                 font=FONT_KPI_TIT,
             )
             card_info["sub"].config(
-                bg=bg_tarjeta, fg=cfg["sub"], font=FONT_LABEL
+                bg=estilo["bg_tarjeta"], fg=estilo["color_sub"], font=FONT_LABEL
             )
             card_info["icon"].config(
-                bg=bg_tarjeta, fg=borde_color if esta_activa else color_acento
+                bg=estilo["bg_tarjeta"], fg=estilo["color_indicador"]
             )
             card_info["val"].config(
-                bg=bg_tarjeta, fg=cfg["val"], font=FONT_KPI_VAL
+                bg=estilo["bg_tarjeta"], fg=estilo["color_val"], font=FONT_KPI_VAL
             )
             
     # --- TARJETAS MÉTRICAS ---
@@ -565,11 +555,8 @@ class InventarioBienesApp:
         clave="TODOS",
         color_acento="#1E3A8A",
     ):
-        # Determinar estado activo y color de fondo de la tarjeta
         es_activa = (self.filtro_metrica_activa == clave and clave != "TODOS")
-        t = "oscuro" if self.modo_oscuro else "claro"
-        cfg = self.PALETA[t]["kpis"][col]
-        bg_tarjeta = cfg["active_bg"] if es_activa else cfg["bg"]
+        estilo = obtener_estilo_kpi(self.modo_oscuro, col, es_activa)
 
         card = tk.Frame(
             self.frame_kpis, bd=0, highlightthickness=1, cursor="hand2"
@@ -579,7 +566,7 @@ class InventarioBienesApp:
         strip = tk.Frame(
             card,
             width=4,
-            bg=color_acento,
+            bg=estilo["color_acento"],
             bd=0,
             highlightthickness=0,
             cursor="hand2",
@@ -589,19 +576,18 @@ class InventarioBienesApp:
         content = tk.Frame(card, bd=0, highlightthickness=0, cursor="hand2")
         content.pack(side="left", fill="both", expand=True, padx=8, pady=6)
 
-        # Contenedor superior para el título e icono
         top_frame = tk.Frame(
-            content, bg=bg_tarjeta, bd=0, highlightthickness=0, cursor="hand2"
+            content, bg=estilo["bg_tarjeta"], bd=0, highlightthickness=0, cursor="hand2"
         )
         top_frame.pack(fill="x")
 
-        # Indicador tipo punto activo (Dot)
+        # Indicador independiente (Punto ●)
         lbl_check = tk.Label(
             top_frame,
-            text="● " if es_activa else "",
-            font=("Segoe UI", 9, "bold"),
-            fg=color_acento,
-            bg=bg_tarjeta,
+            text="●" if es_activa else "",
+            font=("Consolas", 15, "bold"),
+            fg=estilo["color_indicador"],
+            bg=estilo["bg_tarjeta"],
             cursor="hand2",
         )
         lbl_check.pack(side="left", padx=(0, 2))
@@ -609,19 +595,18 @@ class InventarioBienesApp:
         lbl_tit = tk.Label(
             top_frame,
             text=titulo,
-            font=("Segoe UI", 8, "bold"),
-            fg=color_acento,
-            bg=bg_tarjeta,
+            font=FONT_KPI_TIT,
+            fg=estilo["color_indicador"],
+            bg=estilo["bg_tarjeta"],
             anchor="w",
             cursor="hand2",
         )
         lbl_tit.pack(side="left", fill="x", expand=True)
 
-        # Línea divisoria horizontal limpia
         linea_div = tk.Frame(
             content,
             height=2,
-            bg=color_acento,
+            bg=estilo["color_acento"],
             bd=0,
             highlightthickness=0,
             cursor="hand2",
@@ -639,7 +624,8 @@ class InventarioBienesApp:
         lbl_val = tk.Label(
             left_col,
             text=valor_inicial,
-            font=("Segoe UI", 18, "bold"),
+            font=FONT_KPI_VAL,
+            fg=estilo["color_val"],
             anchor="w",
             cursor="hand2",
         )
@@ -648,8 +634,8 @@ class InventarioBienesApp:
         lbl_sub = tk.Label(
             left_col,
             text=subtitulo,
-            font=("Segoe UI", 8),
-            fg=color_acento,
+            font=FONT_LABEL,
+            fg=estilo["color_sub"],
             anchor="w",
             cursor="hand2",
         )
@@ -665,7 +651,7 @@ class InventarioBienesApp:
             right_col,
             text=icono,
             font=("Segoe UI", 16),
-            fg=color_acento,
+            fg=estilo["color_indicador"],
             anchor="e",
             cursor="hand2",
         )
@@ -744,86 +730,7 @@ class InventarioBienesApp:
 
     # --- VENTANA EMERGENTE PARA MOSTRAR EQUIPOS DESINCORPORADOS ---
     def mostrar_ventana_desincorporados(self):
-        t = "oscuro" if self.modo_oscuro else "claro"
-        pal = self.PALETA[t]
-
-        ventana_bajas = tk.Toplevel(self.root)
-        ventana_bajas.title("SIGAR - Historial de Activos Desincorporados")
-        ventana_bajas.geometry("800x420")
-        ventana_bajas.configure(bg=pal["bg_root"])
-        ventana_bajas.transient(self.root)
-        ventana_bajas.grab_set()
-
-        ventana_bajas.update_idletasks()
-        w = ventana_bajas.winfo_width()
-        h = ventana_bajas.winfo_height()
-        x = (ventana_bajas.winfo_screenwidth() // 2) - (w // 2)
-        y = (ventana_bajas.winfo_screenheight() // 2) - (h // 2)
-        ventana_bajas.geometry(f"{w}x{h}+{x}+{y}")
-
-        lbl_titulo = tk.Label(
-            ventana_bajas,
-            text="❌ REGISTRO DE ACTAS DE DESINCORPORACIÓN Y BAJA",
-            font=("Segoe UI", 11, "bold"),
-            fg="#dc2626",
-            bg=pal["bg_root"],
-            pady=10,
-        )
-        lbl_titulo.pack()
-
-        frame_tabla_bajas = tk.Frame(ventana_bajas, bg=pal["bg_root"])
-        frame_tabla_bajas.pack(fill="both", expand=True, padx=15, pady=(0, 15))
-
-        cols = ("id", "nombre", "asignado_a", "fecha_baja", "motivo")
-        tabla_bajas = ttk.Treeview(
-            frame_tabla_bajas, columns=cols, show="headings"
-        )
-
-        tabla_bajas.heading("id", text="ID Activo")
-        tabla_bajas.heading("nombre", text="Descripción / Bien")
-        tabla_bajas.heading("asignado_a", text="Asignación Previa")
-        tabla_bajas.heading("fecha_baja", text="Fecha Procesamiento")
-        tabla_bajas.heading("motivo", text="Motivo / Justificación")
-
-        tabla_bajas.column("id", width=70, anchor="center")
-        tabla_bajas.column("nombre", width=200, anchor="w")
-        tabla_bajas.column("asignado_a", width=140, anchor="w")
-        tabla_bajas.column("fecha_baja", width=130, anchor="center")
-        tabla_bajas.column("motivo", width=220, anchor="w")
-
-        scroll_bajas = ttk.Scrollbar(
-            frame_tabla_bajas, orient="vertical", command=tabla_bajas.yview
-        )
-        tabla_bajas.configure(yscrollcommand=scroll_bajas.set)
-
-        tabla_bajas.pack(side="left", fill="both", expand=True)
-        scroll_bajas.pack(side="right", fill="y")
-
-        lista_bajas = cargar_historial_bajas()
-        for i, reg in enumerate(lista_bajas):
-            tag_fila = "par" if i % 2 == 0 else "impar"
-            tabla_bajas.insert(
-                "",
-                "end",
-                values=(
-                    reg.get("id", "N/A"),
-                    reg.get("nombre", "N/A"),
-                    reg.get("asignado_a", "N/A"),
-                    reg.get("fecha_baja", "N/A"),
-                    reg.get("motivo_baja", "Sin justificación"),
-                ),
-                tags=(tag_fila,),
-            )
-
-        if not lista_bajas:
-            lbl_vacio = tk.Label(
-                ventana_bajas,
-                text="No hay actas de desincorporación registradas.",
-                font=("Segoe UI", 9, "italic"),
-                fg=pal["fg_subtexto"],
-                bg=pal["bg_root"],
-            )
-            lbl_vacio.pack(pady=10)
+        VentanaDesincorporados(self.root, self.PALETA, self.modo_oscuro)
 
     def actualizar_metricas(self):
         total = len(self.bienes)
@@ -1200,157 +1107,12 @@ class InventarioBienesApp:
 
     # --- VENTANA EMERGENTE DE RESPALDOS ---
     def abrir_ventana_respaldos(self):
-        t = "oscuro" if self.modo_oscuro else "claro"
-        pal = self.PALETA[t]
-
-        modal = tk.Toplevel(self.root)
-        modal.title("Gestión y Centro de Respaldos")
-        modal.geometry("420x280")
-        modal.resizable(False, False)
-        modal.configure(bg=pal["bg_root"])
-        modal.transient(self.root)
-        modal.grab_set()
-
-        modal.update_idletasks()
-        w = modal.winfo_width()
-        h = modal.winfo_height()
-        x = (modal.winfo_screenwidth() // 2) - (w // 2)
-        y = (modal.winfo_screenheight() // 2) - (h // 2)
-        modal.geometry(f"{w}x{h}+{x}+{y}")
-
-        lbl_titulo = tk.Label(
-            modal,
-            text="☁️ Sincronización y Respaldos",
-            font=("Segoe UI", 12, "bold"),
-            fg=pal["fg_texto"],
-            bg=pal["bg_root"],
-        )
-        lbl_titulo.pack(pady=(15, 5))
-
-        lbl_sub = tk.Label(
-            modal,
-            text="Seleccione la acción de respaldo que desea ejecutar:",
-            font=("Segoe UI", 8),
-            fg=pal["fg_subtexto"],
-            bg=pal["bg_root"],
-        )
-        lbl_sub.pack(pady=(0, 15))
-
-        frame_botones = tk.Frame(modal, bg=pal["bg_root"])
-        frame_botones.pack(fill="both", expand=True, padx=25, pady=5)
-
-        btn_nube = tk.Button(
-            frame_botones,
-            text="☁️ Exportar / Guardar Respaldo en la Nube",
-            bg="#0284C7",
-            fg="white",
-            activebackground="#0369a1",
-            activeforeground="white",
-            font=("Segoe UI", 9, "bold"),
-            bd=0,
-            pady=8,
-            cursor="hand2",
-            command=lambda: self.accion_guardar_nube(modal),
-        )
-        btn_nube.pack(fill="x", pady=4)
-
-        btn_importar = tk.Button(
-            frame_botones,
-            text="📥 Importar / Restaurar desde la Nube",
-            bg="#0D9488",
-            fg="white",
-            activebackground="#0F766E",
-            activeforeground="white",
-            font=("Segoe UI", 9, "bold"),
-            bd=0,
-            pady=8,
-            cursor="hand2",
-            command=lambda: self.accion_importar_nube(modal),
-        )
-        btn_importar.pack(fill="x", pady=4)
-
-        btn_local = tk.Button(
-            frame_botones,
-            text="💾 Guardar Respaldo Local (Copiar JSON)",
-            bg="#475569",
-            fg="white",
-            activebackground="#334155",
-            activeforeground="white",
-            font=("Segoe UI", 9, "bold"),
-            bd=0,
-            pady=8,
-            cursor="hand2",
-            command=lambda: self.accion_guardar_local(modal),
-        )
-        btn_local.pack(fill="x", pady=4)
-
-    # --- ACCIONES FRONTEND DE RESPALDO ---
-    def accion_guardar_nube(self, modal):
-        if not HAS_REQUESTS:
-            messagebox.showinfo(
-                "Librería Pendiente",
-                "Se requiere la librería 'requests' instalada para enviar datos"
-                " a la API.",
-                parent=modal,
-            )
-            return
-
-        exportar_respaldo_nube_bd(parent_window=modal)
-        messagebox.showinfo(
-            "Conexión Backend",
-            "Frontend preparado para enviar datos al servidor"
-            f" API:\n\nEndpoint: {URL_RESPALDO_CLOUD}\n\nEstructura JSON lista.",
-            parent=modal,
-        )
-
-    def accion_importar_nube(self, modal):
-        if not HAS_REQUESTS:
-            messagebox.showinfo(
-                "Librería Pendiente",
-                "Se requiere la librería 'requests' instalada para recibir"
-                " datos de la API.",
-                parent=modal,
-            )
-            return
-
-        messagebox.showinfo(
-            "Conexión Backend",
-            "Frontend preparado para consultar e importar datos desde la"
-            f" API:\n\nEndpoint: {URL_RESPALDO_CLOUD}",
-            parent=modal,
-        )
-
-    def accion_guardar_local(self, modal):
-        try:
-            filename = filedialog.asksaveasfilename(
-                parent=modal,
-                title="Guardar Respaldo Local",
-                defaultextension=".json",
-                filetypes=[
-                    ("Archivos JSON", "*.json"),
-                    ("Todos los archivos", "*.*"),
-                ],
-                initialfile=(
-                    f"respaldo_sigar_{date.today().strftime('%Y%m%d')}.json"
-                ),
-            )
-            if filename:
-                import json
-
-                with open(filename, "w", encoding="utf-8") as f:
-                    json.dump(self.bienes, f, ensure_ascii=False, indent=4)
-                messagebox.showinfo(
-                    "Respaldo Guardado",
-                    "El respaldo local ha sido guardado exitosamente"
-                    f" en:\n{filename}",
-                    parent=modal,
-                )
-        except Exception as e:
-            messagebox.showerror(
-                "Error",
-                f"No se pudo guardar el respaldo local: {e}",
-                parent=modal,
-            )
+        VentanaRespaldos(
+        self.root,
+        self.PALETA,
+        self.modo_oscuro,
+        obtener_bienes_callback=lambda: self.bienes,
+    )
 
     # --- LÓGICA CRUD Y OPERACIONES ---
     def agregar_bien(self):

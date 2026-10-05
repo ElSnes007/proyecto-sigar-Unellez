@@ -154,6 +154,34 @@ PALETA = {
     },
 }
 
+# Agregar al final de styles.py
+
+def obtener_estilo_kpi(modo_oscuro, índice, esta_activa):
+    """
+    Retorna un diccionario con todas las propiedades visuales necesarias
+    para renderizar una tarjeta KPI según el estado y tema actual.
+    """
+    t = "oscuro" if modo_oscuro else "claro"
+    cfg = PALETA[t]["kpis"][índice]
+    color_acento = cfg["text"]
+
+    bg_tarjeta = cfg["active_bg"] if esta_activa else cfg["bg"]
+    borde_color = cfg["active_border"] if esta_activa else cfg["border"]
+    grosor_borde = 3 if esta_activa else 1
+    padx_comp = 6 if esta_activa else 8
+    pady_comp = 4 if esta_activa else 6
+
+    return {
+        "bg_tarjeta": bg_tarjeta,
+        "borde_color": borde_color,
+        "grosor_borde": grosor_borde,
+        "padx": padx_comp,
+        "pady": pady_comp,
+        "color_acento": color_acento,
+        "color_sub": cfg["sub"],
+        "color_val": cfg["val"],
+        "color_indicador": borde_color if esta_activa else color_acento,
+    }
 
 def cargar_preferencia_tema():
     if os.path.exists(ARCHIVO_PREFERENCIAS):
