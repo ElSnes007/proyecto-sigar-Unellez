@@ -8,6 +8,7 @@ import customtkinter as ctk
 from database import (
     cargar_bajas_locales,
     exportar_bd,
+    exportar_respaldo_nube_bd,
     importar_bd,
     restaurar_baja_local,
 )
@@ -187,7 +188,6 @@ class VentanaDesincorporados(ctk.CTkToplevel):
             if exito:
                 messagebox.showinfo("Éxito", msj, parent=self)
                 self.cargar_datos()
-                # Refrescar la vista en la ventana principal si tiene la función asignada
                 if hasattr(self.parent, "bienes"):
                     from database import cargar_datos_locales
 
@@ -210,7 +210,7 @@ class VentanaRespaldos(ctk.CTkToplevel):
         self.obtener_bienes_callback = obtener_bienes_callback
 
         self.title("Centro de Respaldos y Migración de Base de Datos")
-        self.geometry("520x360")
+        self.geometry("520x420")
         self.resizable(False, False)
 
         self.transient(parent)
@@ -243,18 +243,18 @@ class VentanaRespaldos(ctk.CTkToplevel):
 
         lbl_instruccion = ctk.CTkLabel(
             self.frame_content,
-            text="Gestione las copias de seguridad locales del sistema SIGAR:",
+            text="Gestione las copias de seguridad locales y en la nube del sistema SIGAR:",
             font=ctk.CTkFont(size=11, weight="bold"),
         )
         lbl_instruccion.pack(anchor="w", padx=15, pady=(15, 10))
 
-        # Sección Exportar
+        # Sección Exportar Local
         frame_exp = ctk.CTkFrame(self.frame_content, fg_color="transparent")
-        frame_exp.pack(fill="x", padx=15, pady=5)
+        frame_exp.pack(fill="x", padx=15, pady=4)
 
         lbl_exp_desc = ctk.CTkLabel(
             frame_exp,
-            text="• Generar una copia de respaldo completa (JSON):",
+            text="• Generar una copia de respaldo local (JSON):",
             font=ctk.CTkFont(size=10),
         )
         lbl_exp_desc.pack(anchor="w", pady=(0, 2))
@@ -265,19 +265,41 @@ class VentanaRespaldos(ctk.CTkToplevel):
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color="#0284c7",
             hover_color="#0369a1",
-            height=32,
+            height=30,
             command=self.exportar_respaldo,
         )
         btn_exportar.pack(fill="x")
 
+        # Sección Respaldo Nube
+        frame_nube = ctk.CTkFrame(self.frame_content, fg_color="transparent")
+        frame_nube.pack(fill="x", padx=15, pady=4)
+
+        lbl_nube_desc = ctk.CTkLabel(
+            frame_nube,
+            text="• Sincronizar respaldo en la nube (Google Sheets):",
+            font=ctk.CTkFont(size=10),
+        )
+        lbl_nube_desc.pack(anchor="w", pady=(0, 2))
+
+        btn_nube = ctk.CTkButton(
+            frame_nube,
+            text="☁ Respaldo en la Nube",
+            font=ctk.CTkFont(size=11, weight="bold"),
+            fg_color="#0d9488",
+            hover_color="#0f766e",
+            height=30,
+            command=lambda: exportar_respaldo_nube_bd(parent_window=self),
+        )
+        btn_nube.pack(fill="x")
+
         # Separador
         ctk.CTkFrame(self.frame_content, height=1, fg_color="#334155").pack(
-            fill="x", padx=15, pady=12
+            fill="x", padx=15, pady=8
         )
 
         # Sección Importar
         frame_imp = ctk.CTkFrame(self.frame_content, fg_color="transparent")
-        frame_imp.pack(fill="x", padx=15, pady=5)
+        frame_imp.pack(fill="x", padx=15, pady=4)
 
         lbl_imp_desc = ctk.CTkLabel(
             frame_imp,
@@ -292,7 +314,7 @@ class VentanaRespaldos(ctk.CTkToplevel):
             font=ctk.CTkFont(size=11, weight="bold"),
             fg_color="#d97706",
             hover_color="#b45309",
-            height=32,
+            height=30,
             command=self.importar_respaldo,
         )
         btn_importar.pack(fill="x")
