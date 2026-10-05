@@ -251,41 +251,9 @@ class InventarioBienesApp:
 
     # --- TEMA MODO OSCURO / CLARO ---
     def toggle_modo_oscuro_animado(self):
-        color_inicio = self.PALETA["oscuro" if self.modo_oscuro else "claro"][
-            "bg_root"
-        ]
         self.modo_oscuro = not self.modo_oscuro
         self.modo_actual = "oscuro" if self.modo_oscuro else "claro"
-        color_fin = self.PALETA["oscuro" if self.modo_oscuro else "claro"][
-            "bg_root"
-        ]
-
-        rgb_inicio = hex_a_rgb(color_inicio)
-        rgb_fin = hex_a_rgb(color_fin)
-        self.animar_transicion_bg(rgb_inicio, rgb_fin, paso=0, total_pasos=12)
-
-    def animar_transicion_bg(self, rgb_inicio, rgb_fin, paso, total_pasos):
-        if paso <= total_pasos:
-            factor = paso / total_pasos
-            r = int(rgb_inicio[0] + (rgb_fin[0] - rgb_inicio[0]) * factor)
-            g = int(rgb_inicio[1] + (rgb_fin[1] - rgb_inicio[1]) * factor)
-            b = int(rgb_inicio[2] + (rgb_fin[2] - rgb_inicio[2]) * factor)
-            color_interp = rgb_a_hex((r, g, b))
-
-            self.root.configure(bg=color_interp)
-            self.frame_kpis.configure(bg=color_interp)
-            if hasattr(self, "frame_busqueda"):
-                self.frame_busqueda.configure(bg=color_interp)
-            self.frame_tabla.configure(bg=color_interp)
-            self.frame_acciones.configure(bg=color_interp)
-            self.root.after(
-                18,
-                lambda: self.animar_transicion_bg(
-                    rgb_inicio, rgb_fin, paso + 1, total_pasos
-                ),
-            )
-        else:
-            self.aplicar_tema_widgets()
+        self.aplicar_tema_widgets()
 
     def aplicar_tema_widgets(self):
         self.modo_oscuro = self.modo_actual == "oscuro"
@@ -296,8 +264,22 @@ class InventarioBienesApp:
         self.root.config(bg=pal["bg_root"])
         if hasattr(self, "frame_kpis"):
             self.frame_kpis.config(bg=pal["bg_root"])
-        if hasattr(self, "frame_busqueda"):
+            
+        # Actualizar colores del Frame y Labels de Búsqueda
+        if hasattr(self, 'frame_busqueda'):
             self.frame_busqueda.config(bg=pal["bg_root"])
+            self.lbl_lupa.config(bg=pal["bg_root"], fg=pal["fg_texto"])
+            self.lbl_buscar.config(bg=pal["bg_root"], fg=pal["fg_texto"])
+            self.lbl_indicador_busqueda.config(
+                bg=pal["bg_root"], 
+                fg=pal.get("fg_subtexto", pal["fg_texto"])
+            )
+            self.entry_buscar.config(
+            bg="white" if not self.modo_oscuro else "#1e1e1e",
+            fg="black" if not self.modo_oscuro else "white",
+            insertbackground="black" if not self.modo_oscuro else "white",
+        )
+            
         if hasattr(self, "frame_tabla"):
             self.frame_tabla.config(bg=pal["bg_root"])
         if hasattr(self, "frame_acciones"):
@@ -930,21 +912,36 @@ class InventarioBienesApp:
             self.entry_desc_mant,
         ])
 
-    # --- BÚSQUEDA ---
+   # --- BÚSQUEDA ---
     def crear_panel_busqueda(self):
+
+        t = "oscuro" if self.modo_oscuro else "claro"
+        pal = self.PALETA[t]
+
         self.frame_busqueda = tk.Frame(
-            self.root, bg=self.PALETA["claro"]["bg_root"]
+            self.root, bg=pal["bg_root"]
         )
         self.frame_busqueda.grid(
             row=3, column=0, sticky="ew", padx=15, pady=(4, 2)
         )
 
-        self.lbl_icon_buscar = tk.Label(
+        self.lbl_lupa = tk.Label(
             self.frame_busqueda,
-            text="🔍 Buscar Activo:",
-            font=("Segoe UI", 8, "bold"),
+            text="🔍",
+            font=("Segoe UI", 11),
+            fg=pal["fg_texto"],
+            bg=pal["bg_root"],
         )
-        self.lbl_icon_buscar.pack(side="left", padx=(0, 5))
+        self.lbl_lupa.pack(side="left", padx=(0, 2))
+
+        self.lbl_buscar = tk.Label(
+            self.frame_busqueda,
+            text="Buscar Activo:",
+            font=("Segoe UI", 9, "bold"),
+            fg=pal["fg_texto"],
+            bg=pal["bg_root"],
+        )
+        self.lbl_buscar.pack(side="left", padx=(0, 5))
 
         self.entry_buscar = tk.Entry(
             self.frame_busqueda,
@@ -952,12 +949,15 @@ class InventarioBienesApp:
             relief="solid",
             bd=1,
             width=22,
+            bg="white" if not self.modo_oscuro else "#1e1e1e",
+            fg="black" if not self.modo_oscuro else "white",
+            insertbackground="black" if not self.modo_oscuro else "white",
         )
         self.entry_buscar.pack(side="left", padx=5, ipady=3)
         self.entry_buscar.bind("<KeyRelease>", self.filtrar_tabla)
         self.entries_widgets.append(self.entry_buscar)
 
-        tk.Button(
+        self.btn_limpiar_filtro = tk.Button(
             self.frame_busqueda,
             text="Limpiar Filtro",
             bg="#002B49",
@@ -968,12 +968,15 @@ class InventarioBienesApp:
             padx=8,
             pady=3,
             cursor="hand2",
-        ).pack(side="left", padx=5)
+        )
+        self.btn_limpiar_filtro.pack(side="left", padx=5)
 
         self.lbl_indicador_busqueda = tk.Label(
             self.frame_busqueda,
             text="(Doble clic para editar / Clic derecho para opciones)",
             font=("Segoe UI", 8, "bold"),
+            fg=pal["fg_subtexto"] if "fg_subtexto" in pal else pal["fg_texto"],
+            bg=pal["bg_root"],
         )
         self.lbl_indicador_busqueda.pack(side="right")
 
