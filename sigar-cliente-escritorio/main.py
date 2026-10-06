@@ -226,13 +226,13 @@ class InventarioBienesApp:
         if hasattr(self, "btn_modo_oscuro"):
             if self.modo_oscuro:
                 self.btn_modo_oscuro.configure(
-                    text="☀️ Modo Claro",
+                    text="  Modo Claro",
                     fg_color="#d97706",
                     hover_color="#b45309",
                 )
             else:
                 self.btn_modo_oscuro.configure(
-                    text="🌙 Cuidado de Vista",
+                    text="Cuidado de Vista",
                     fg_color="#1e293b",
                     hover_color="#334155",
                 )
@@ -294,7 +294,7 @@ class InventarioBienesApp:
         metricas = [
             ("TOTAL ACTIVOS", "0", "Bienes registrados", "📋", "TODOS"),
             ("OPERATIVOS", "0", "En servicio activo", "🟢", "OPERATIVOS"),
-            ("PREVENTIVOS", "0", "Ciclo regular (+3M)", "🔧", "PREVENTIVOS"),
+            ("PREVENTIVOS", "0", "Limpieza / Mantenimiento (Ciclo regular +3M)", "🔧", "PREVENTIVOS"),
             ("CORRECTIVOS", "0", "Ajuste / Reparación", "⚙️", "CORRECTIVOS"),
             ("DESINCORPORADOS", "0", "Actas emitidas", "❌", "DESINCORPORADOS"),
         ]

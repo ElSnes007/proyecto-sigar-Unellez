@@ -1,6 +1,7 @@
-venv_win7/
+venv_win64/
 venv32/
 build/
 dist/
 __pycache__/
 *.spec
+venv_win32/

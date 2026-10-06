@@ -5,7 +5,7 @@ a = Analysis(
     ['main.py'],
     pathex=[],
     binaries=[],
-    datas=[('UNELLEZ LOGO.png', '.'), ('lema_unellez_oro.png', '.'), ('fondo.png', '.'), ('logo.png', '.'), ('acceso.json', '.'), ('bajas.json', '.'), ('bienes.json', '.'), ('config_app.json', '.')],
+    datas=[('bienes.json', '.'), ('bajas.json', '.')],
     hiddenimports=[],
     hookspath=[],
     hooksconfig={},
@@ -32,7 +32,6 @@ exe = EXE(
     target_arch=None,
     codesign_identity=None,
     entitlements_file=None,
-    icon=['UNELLEZ LOGO.png'],
 )
 coll = COLLECT(
     exe,
