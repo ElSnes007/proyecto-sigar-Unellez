@@ -1,4 +1,6 @@
+venv_win7/
+venv32/
+build/
+dist/
 __pycache__/
-config_app.json
-*/config_app.json
-*.json~
+*.spec
