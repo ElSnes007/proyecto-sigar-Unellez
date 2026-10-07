@@ -11,6 +11,28 @@ import customtkinter as ctk
 from login import AuthApp
 from modals import VentanaDesincorporados, VentanaRespaldos
 
+from PIL import Image, ImageOps
+
+
+def colorear_icono_png(ruta_png, color_hex):
+    """
+    Carga un PNG con transparencia y cambia el color de su silueta al color_hex indicado.
+    """
+    if not os.path.exists(ruta_png) or not HAS_PIL:
+        return None
+    try_img = Image.open(ruta_png).convert("RGBA")
+    
+    # Separar canal Alfa (transparencia)
+    r, g, b, alpha = try_img.split()
+    
+    # Crear imagen sólida con el color deseado
+    color_solido = Image.new("RGBA", try_img.size, color_hex)
+    
+    # Aplicar la máscara alfa original
+    color_solido.putalpha(alpha)
+    return color_solido
+
+
 # Configuración global de CustomTkinter
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
@@ -50,6 +72,7 @@ from styles import (
     cargar_preferencia_tema,
     guardar_preferencia_tema,
     obtener_estilo_kpi,
+    obtener_ruta_icono
 )
 from utils import (
     HAS_PIL,
@@ -105,7 +128,7 @@ class InventarioBienesApp:
         self.root.rowconfigure(1, weight=0)  # KPIs
         self.root.rowconfigure(2, weight=0)  # Formulario
         self.root.rowconfigure(3, weight=0)  # Búsqueda
-        self.root.rowconfigure(4, weight=1)  # Tabla (Toma todo el espacio remanente)
+        self.root.rowconfigure(4, weight=1)  # Tabla
         self.root.rowconfigure(5, weight=0)  # Acciones
 
         self.PALETA = PALETA
@@ -138,20 +161,22 @@ class InventarioBienesApp:
     # --- CINTILLO INSTITUCIONAL ---
     def crear_cintillo_institucional(self):
         self.frame_cintillo = ctk.CTkFrame(
-            self.root, fg_color="#002B49", corner_radius=0, height=48
+            self.root, fg_color="#1C2F46", corner_radius=0, height=48
         )
         self.frame_cintillo.grid(row=0, column=0, sticky="ew")
         self.frame_cintillo.pack_propagate(False)
 
+        # Contenedor
         frame_logo_titulo = ctk.CTkFrame(self.frame_cintillo, fg_color="transparent")
-        frame_logo_titulo.pack(side="left", padx=12, pady=2)
+        frame_logo_titulo.pack(side="left", padx=12, pady=3)
 
+        # 1. Ícono Logo UNELLEZ
         self.logo_img = None
         if os.path.exists(ARCHIVO_LOGO) and HAS_PIL:
             try:
                 img_pil = Image.open(ARCHIVO_LOGO)
                 self.logo_img = ctk.CTkImage(
-                    light_image=img_pil, dark_image=img_pil, size=(34, 34)
+                    light_image=img_pil, dark_image=img_pil, size=(30, 30)
                 )
                 lbl_logo = ctk.CTkLabel(
                     frame_logo_titulo, image=self.logo_img, text=""
@@ -160,27 +185,28 @@ class InventarioBienesApp:
             except Exception:
                 pass
 
+        # 2. Texto "UNELLEZ"
         lbl_unellez = ctk.CTkLabel(
             frame_logo_titulo,
             text="UNELLEZ",
-            font=ctk.CTkFont(family="Segoe UI", size=15, weight="bold"),
+            font=ctk.CTkFont(family="Georgia", size=20, weight="bold"),
             text_color="#FF6600",
         )
         lbl_unellez.pack(side="left")
 
+        # 3. Separador Vertical (Línea física uniforme)
         lbl_separador = ctk.CTkLabel(
             frame_logo_titulo,
-            text="| >",
-            font=ctk.CTkFont(family="Segoe UI", size=14, weight="bold"),
-            text_color="#475569",
+            text="|",
+            font=ctk.CTkFont(family="Segoe UI", size=24, weight="bold"),
+            text_color="#565D68",
         )
-        lbl_separador.pack(side="left", padx=(10, 10))
+        lbl_separador.pack(side="left", padx=(15, 2), pady=(0, 8))
 
         if os.path.exists(PATH_LEMA) and HAS_PIL:
             try:
                 img_lema_pil = Image.open(PATH_LEMA).convert("RGBA")
-                # Aumentamos la altura de 20 a 28 para que sea legible
-                target_height = 155
+                target_height = 160
                 aspect_ratio = img_lema_pil.width / img_lema_pil.height
                 target_width = int(target_height * aspect_ratio)
 
@@ -194,22 +220,22 @@ class InventarioBienesApp:
                     image=self.img_lema_oro, 
                     text=""
                 )
-                lbl_lema.pack(side="left", padx=(0, 4), pady=6)
+                lbl_lema.pack(side="left", padx=(0, 0), pady=6)
             except Exception as e:
                 print(f"Error cargando lema: {e}")
 
+        # Botón de modo visual (solo ícono)
         self.btn_modo_oscuro = ctk.CTkButton(
             self.frame_cintillo,
-            text="🌙 Cuidado de Vista",
-            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            text="",
+            width=36,
+            height=36,
             fg_color="#1e293b",
             hover_color="#334155",
-            text_color="#f8fafc",
             corner_radius=8,
-            height=30,
             command=self.toggle_modo_oscuro_animado,
         )
-        self.btn_modo_oscuro.pack(side="right", padx=12, pady=8)
+        self.btn_modo_oscuro.pack(side="right", padx=12, pady=6)
 
     def toggle_modo_oscuro_animado(self):
         self.modo_oscuro = not self.modo_oscuro
@@ -225,16 +251,40 @@ class InventarioBienesApp:
 
         if hasattr(self, "btn_modo_oscuro"):
             if self.modo_oscuro:
-                self.btn_modo_oscuro.configure(
-                    text="  Modo Claro",
-                    fg_color="#d97706",
-                    hover_color="#b45309",
-                )
+                archivo_png = "tema_claro.png"
+                color_icono = "#FFFFFF"
+                fg_btn = "#d97706"
+                hover_btn = "#b45309"
+            else:
+                archivo_png = "tema_oscuro.png"
+                color_icono = "#F8FAFC"
+                fg_btn = "#1e293b"
+                hover_btn = "#334155"
+
+            ruta_png_modo = obtener_ruta_icono(archivo_png)
+            
+            if os.path.exists(ruta_png_modo) and HAS_PIL:
+                img_coloreada = colorear_icono_png(ruta_png_modo, color_icono)
+                if img_coloreada:
+                    ctk_img_modo = ctk.CTkImage(
+                        light_image=img_coloreada,
+                        dark_image=img_coloreada,
+                        size=(20, 20)
+                    )
+                    self.btn_modo_oscuro.configure(
+                        image=ctk_img_modo,
+                        text="",
+                        fg_color=fg_btn,
+                        hover_color=hover_btn
+                    )
+                    self.ref_img_btn_modo = ctk_img_modo
+                else:
+                    self.btn_modo_oscuro.configure(
+                        text="", fg_color=fg_btn, hover_color=hover_btn
+                    )
             else:
                 self.btn_modo_oscuro.configure(
-                    text="Cuidado de Vista",
-                    fg_color="#1e293b",
-                    hover_color="#334155",
+                    text="", fg_color=fg_btn, hover_color=hover_btn
                 )
 
         self.actualizar_estilo_tarjetas_kpi()
@@ -256,7 +306,7 @@ class InventarioBienesApp:
                 foreground=tree_fg,
                 fieldbackground=tree_bg,
                 font=("Segoe UI", 9),
-                rowheight=25,  # Cambiado de 30 a 25 para ver más filas
+                rowheight=25,
                 borderwidth=0,
             )
             style.map(
@@ -292,15 +342,15 @@ class InventarioBienesApp:
 
         self.tarjetas_widgets = []
         metricas = [
-            ("TOTAL ACTIVOS", "0", "Bienes registrados", "📋", "TODOS"),
-            ("OPERATIVOS", "0", "En servicio activo", "🟢", "OPERATIVOS"),
-            ("PREVENTIVOS", "0", "Limpieza / Mantenimiento (Ciclo regular +3M)", "🔧", "PREVENTIVOS"),
-            ("CORRECTIVOS", "0", "Ajuste / Reparación", "⚙️", "CORRECTIVOS"),
-            ("DESINCORPORADOS", "0", "Actas emitidas", "❌", "DESINCORPORADOS"),
+            ("TOTAL ACTIVOS", "0", "Bienes registrados", "total_activos.png", "TODOS"),
+            ("OPERATIVOS", "0", "En servicio activo", "operativos.png", "OPERATIVOS"),
+            ("PREVENTIVOS", "0", "Limpieza / Mantenimiento (Ciclo regular +3M)", "preventivos.png", "PREVENTIVOS"),
+            ("CORRECTIVOS", "0", "Ajuste / Reparación", "correctivos.png", "CORRECTIVOS"),
+            ("DESINCORPORADOS", "0", "Actas emitidas", "desincorporados.png", "DESINCORPORADOS"),
         ]
 
-        for col, (titulo, valor, sub, icono, clave) in enumerate(metricas):
-            val_widget = self.crear_tarjeta(col, titulo, valor, sub, icono, clave)
+        for col, (titulo, valor, sub, nombre_archivo_png, clave) in enumerate(metricas):
+            val_widget = self.crear_tarjeta(col, titulo, valor, sub, nombre_archivo_png, clave)
             if col == 0:
                 self.lbl_val_total = val_widget
             elif col == 1:
@@ -312,7 +362,7 @@ class InventarioBienesApp:
             elif col == 4:
                 self.lbl_val_desincorporados = val_widget
 
-    def crear_tarjeta(self, col, titulo, valor_inicial, subtitulo, icono="📊", clave="TODOS"):
+    def crear_tarjeta(self, col, titulo, valor_inicial, subtitulo, nombre_archivo_png, clave="TODOS"):
         card = ctk.CTkFrame(
             self.frame_kpis,
             corner_radius=10,
@@ -321,7 +371,6 @@ class InventarioBienesApp:
         )
         card.grid(row=0, column=col, sticky="nsew", padx=4)
 
-        # 1. Encabezado superior (Título e indicador activo)
         top_frame = ctk.CTkFrame(card, fg_color="transparent")
         top_frame.pack(fill="x", padx=10, pady=(6, 2))
 
@@ -340,21 +389,15 @@ class InventarioBienesApp:
         )
         lbl_tit.pack(side="left", fill="x", expand=True)
 
-        # 2. Línea separadora (Alineada a la izquierda y pegada al título)
-        linea_separadora = ctk.CTkFrame(
-            card,
-            height=2,
-            corner_radius=0
-        )
+        linea_separadora = ctk.CTkFrame(card, height=2, corner_radius=0)
         linea_separadora.pack(anchor="w", fill="x", padx=(10, 90), pady=(0, 4))
 
-       # 3. Cuerpo principal (Número + Ícono alineado a la derecha)
         body_frame = ctk.CTkFrame(card, fg_color="transparent")
         body_frame.pack(fill="both", expand=True, padx=10, pady=(0, 6))
 
         val_frame = ctk.CTkFrame(body_frame, fg_color="transparent")
         val_frame.pack(fill="x", expand=True)
-        val_frame.columnconfigure(0, weight=1)  # La columna 0 (el valor) absorbe todo el espacio extra
+        val_frame.columnconfigure(0, weight=1)
 
         lbl_val = ctk.CTkLabel(
             val_frame,
@@ -365,9 +408,8 @@ class InventarioBienesApp:
         lbl_val.grid(row=0, column=0, sticky="w")
 
         lbl_icon = ctk.CTkLabel(
-            val_frame, 
-            text=icono, 
-            font=ctk.CTkFont(size=24), 
+            val_frame,
+            text="",
             anchor="e"
         )
         lbl_icon.grid(row=0, column=1, sticky="e")
@@ -387,6 +429,9 @@ class InventarioBienesApp:
         for elem in elementos:
             elem.bind("<Button-1>", lambda event, c=clave: self.filtrar_por_metrica(c))
 
+        # Obtener ruta absoluta centralizada desde styles.py
+        ruta_png = obtener_ruta_icono(nombre_archivo_png)
+
         self.tarjetas_widgets.append({
             "card": card,
             "check": lbl_check,
@@ -397,6 +442,8 @@ class InventarioBienesApp:
             "linea": linea_separadora,
             "clave": clave,
             "titulo_original": titulo,
+            "ruta_png": ruta_png,
+            "ctk_img_ref": None
         })
         return lbl_val
     
@@ -405,6 +452,8 @@ class InventarioBienesApp:
             clave_kpi = card_info["clave"]
             esta_activa = self.filtro_metrica_activa == clave_kpi and clave_kpi != "TODOS"
             estilo = obtener_estilo_kpi(self.modo_oscuro, i, esta_activa)
+
+            color_acento = estilo["color_acento"]
 
             card_info["card"].configure(
                 fg_color=estilo["bg_tarjeta"],
@@ -415,28 +464,37 @@ class InventarioBienesApp:
                 text="●" if esta_activa else "",
                 text_color=estilo["color_indicador"],
             )
-            card_info["tit"].configure(text_color=estilo["color_acento"])
-            
-            # Asignar el color acento correspondiente de la métrica al ícono
-            card_info["icon"].configure(text_color=estilo["color_acento"])
-            
+            card_info["tit"].configure(text_color=color_acento)
             card_info["val"].configure(text_color=estilo["color_val"])
             card_info["sub"].configure(text_color=estilo["color_sub"])
             
-            # Asignar a la línea el mismo color de su respectiva métrica
             if "linea" in card_info:
-                card_info["linea"].configure(fg_color=estilo["color_acento"])
+                card_info["linea"].configure(fg_color=color_acento)
+
+            ruta_png = card_info.get("ruta_png", "")
+            if os.path.exists(ruta_png) and HAS_PIL:
+                img_coloreada = colorear_icono_png(ruta_png, color_acento)
+                if img_coloreada:
+                    ctk_img = ctk.CTkImage(
+                        light_image=img_coloreada,
+                        dark_image=img_coloreada,
+                        size=(32, 32)
+                    )
+                    card_info["icon"].configure(image=ctk_img, text="")
+                    card_info["ctk_img_ref"] = ctk_img
+                else:
+                    card_info["icon"].configure(text="📊", text_color=color_acento)
+            else:
+                card_info["icon"].configure(text="📊", text_color=color_acento)
 
     # --- FORMULARIO ---
     def crear_formulario(self):
         self.frame_form = ctk.CTkFrame(self.root, corner_radius=10)
-        # Reducimos los paddings verticales (pady=2) para recuperar espacio en la pantalla
         self.frame_form.grid(row=2, column=0, sticky="ew", padx=15, pady=2)
         self.frame_form.columnconfigure(1, weight=1)
         self.frame_form.columnconfigure(3, weight=2)
         self.frame_form.columnconfigure(5, weight=1)
 
-        # Título superior antes del campo ID único
         lbl_titulo_seccion = ctk.CTkLabel(
             self.frame_form,
             text=" REGISTRO Y EDICIÓN DE ACTIVOS",
@@ -446,7 +504,6 @@ class InventarioBienesApp:
         )
         lbl_titulo_seccion.grid(row=0, column=0, columnspan=6, padx=12, pady=(6, 2), sticky="w")
 
-        # Fila 1: ID Único y Asignado a
         lbl1 = ctk.CTkLabel(
             self.frame_form,
             text="ID único:",
@@ -514,7 +571,6 @@ class InventarioBienesApp:
             height=26,
         ).pack(fill="x", pady=2)
 
-        # Fila 2: Descripción / Nombre
         lbl3 = ctk.CTkLabel(
             self.frame_form,
             text="Descripción / Nombre:",
@@ -529,7 +585,6 @@ class InventarioBienesApp:
             row=2, column=1, columnspan=5, padx=5, pady=3, sticky="ew"
         )
 
-        # Fila 3: Mantenimientos y Fechas
         lbl4 = ctk.CTkLabel(
             self.frame_form,
             text="¿Mantenimiento?:",
@@ -574,7 +629,6 @@ class InventarioBienesApp:
         )
         self.entry_proximo.grid(row=3, column=5, padx=5, pady=3, sticky="ew")
 
-        # Fila 4: Detalle / Observación
         lbl7 = ctk.CTkLabel(
             self.frame_form,
             text="Detalle / Observación:",

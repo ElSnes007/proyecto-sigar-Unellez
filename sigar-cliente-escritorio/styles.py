@@ -8,10 +8,34 @@ CONFIG_FILE = "config.json"
 
 
 def obtener_ruta_guardado():
-    """Obtiene la ruta física de persistencia evitando la carpeta temporal sys._MEIPASS."""
+    """Obtiene la ruta física del ejecutable o script actual (fuera de sys._MEIPASS)."""
     if getattr(sys, "frozen", False):
         return os.path.dirname(sys.executable)
     return os.path.dirname(os.path.abspath(__file__))
+
+
+def obtener_ruta_base():
+    """Obtiene la ruta base adecuada tanto en modo script como empaquetado con PyInstaller."""
+    if getattr(sys, "frozen", False):
+        return getattr(sys, "_MEIPASS", os.path.dirname(sys.executable))
+    return os.path.dirname(os.path.abspath(__file__))
+
+
+def obtener_ruta_icono(nombre_archivo):
+    """
+    Retorna la ruta absoluta de un ícono dentro de la carpeta 'iconos' 
+    buscando prioritariamente en la carpeta del ejecutable/proyecto.
+    """
+    base_dir = obtener_ruta_guardado()
+    ruta = os.path.join(base_dir, "iconos", nombre_archivo)
+    
+    # Si no existe en la ruta de guardado, buscar en la ruta base (_MEIPASS / temp)
+    if not os.path.exists(ruta):
+        ruta_alt = os.path.join(obtener_ruta_base(), "iconos", nombre_archivo)
+        if os.path.exists(ruta_alt):
+            return ruta_alt
+            
+    return ruta
 
 
 ARCHIVO_PREFERENCIAS = os.path.join(
