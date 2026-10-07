@@ -6,7 +6,8 @@
         "mantenimiento": "Sí (Preventivo)",
         "fecha_mant": "15/05/2026",
         "proximo_mant": "17/08/2026",
-        "desc_mant": "Limpieza general y cambio de pasta térmica"
+        "desc_mant": "Limpieza general y cambio de pasta térmica",
+        "perifericos": {}
     },
     {
         "id": 2,
@@ -133,5 +134,69 @@
         "fecha_mant": "02/09/2026",
         "proximo_mant": "02/12/2026",
         "desc_mant": "Análisis S.M.A.R.T. y verificación de sectores"
+    },
+    {
+        "id": 16,
+        "nombre": "Computadora Hp",
+        "asignado_a": "Rectorado",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_mant": "11/11/2026",
+        "proximo_mant": "11/02/2027",
+        "desc_mant": "",
+        "perifericos": {}
+    },
+    {
+        "id": 17,
+        "nombre": "computadora de escritorio",
+        "asignado_a": "Departamento de Sistemas",
+        "mantenimiento": "Sí (Correctivo)",
+        "fecha_mant": "11/12/2026",
+        "proximo_mant": "11/03/2027",
+        "desc_mant": "Computadora modelo hp 7320",
+        "perifericos": {
+            "monitor": {
+                "estado": "Operativo",
+                "detalle": "Funciona"
+            },
+            "teclado": {
+                "estado": "Dañado",
+                "detalle": "Presenta fallas en algunas teclas numericas"
+            },
+            "mouse": {
+                "estado": "Operativo",
+                "detalle": "Sin problemas"
+            },
+            "cpu": {
+                "estado": "Operativo",
+                "detalle": "Funcionando"
+            }
+        }
+    },
+    {
+        "id": 18,
+        "nombre": "laptop Mac pro",
+        "asignado_a": "Administración",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_mant": "08/10/2026",
+        "proximo_mant": "08/01/2027",
+        "desc_mant": "Laptpo Mac pro de 512GB",
+        "perifericos": {
+            "monitor": {
+                "estado": "Dañado",
+                "detalle": "La pantalla parpadea despues de 1 hora de uso"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "funcional"
+            },
+            "mouse": {
+                "estado": "Operativo",
+                "detalle": "funcional"
+            },
+            "cpu": {
+                "estado": "Dañado",
+                "detalle": "Puerto usb dañado del lado derecho"
+            }
+        }
     }
 ]

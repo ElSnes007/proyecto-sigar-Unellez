@@ -15,7 +15,7 @@ from styles import (
     cargar_preferencia_tema, guardar_preferencia_tema, hex_a_rgb, rgb_a_hex
 )
 from utils import (
-    HAS_PIL, HAS_REQUESTS, calcular_fecha_habil_3_meses, generar_acta_baja
+    HAS_PIL, HAS_REQUESTS, calcular_fecha_habil_3_meses, generar_acta_baja, es_activo_compuesto
 )
 if HAS_PIL:
     from PIL import Image, ImageTk
@@ -23,7 +23,7 @@ if HAS_PIL:
 from database import (
     ARCHIVO_BAJAS, URL_RESPALDO_CLOUD, cargar_datos_locales,
     guardar_datos_locales, guardar_baja_local, obtener_conteo_bajas,
-    exportar_respaldo_nube_bd  # <--- Importas la función que creamos en database.py
+    exportar_respaldo_nube_bd
 )
 
 # Definición dinámica de imágenes
@@ -35,13 +35,16 @@ class InventarioBienesApp:
     def __init__(self, root):
         self.root = root
         self.root.title("SIGAR (UNELLEZ) - Sistema de Inventario Local y Gestión de Activos")
-        self.root.geometry("1024x680")
-        self.root.minsize(800, 500)
+        self.root.geometry("1024x720")
+        self.root.minsize(800, 550)
 
-        
         self.modo_actual = cargar_preferencia_tema()
         self.modo_oscuro = (self.modo_actual == "oscuro")
-        self.filtro_metrica_activa = "TODOS"  # Estado del filtro por KPI
+        self.filtro_metrica_activa = "TODOS"
+        
+        # Estados para el subformulario dinámico de periféricos
+        self.subform_desplegado = False
+        self.subform_manual_toggle = False
 
         try:
             self.root.state('zoomed')
@@ -130,17 +133,12 @@ class InventarioBienesApp:
         if os.path.exists(PATH_LEMA):
             try:
                 img_lema_pil = Image.open(PATH_LEMA).convert("RGBA")
-                if hasattr(img_lema_pil, "get_flattened_data"):
-                    pixels = list(img_lema_pil.get_flattened_data())
-                else:
-                    pixels = list(img_lema_pil.getdata())
-
+                pixels = list(img_lema_pil.getdata())
                 new_data = [
                     (255, 255, 255, 0) if item[0] > 230 and item[1] > 230 and item[2] > 230 else item
                     for item in pixels
                 ]
                 img_lema_pil.putdata(new_data)
-
                 bbox = img_lema_pil.getbbox()
                 if bbox:
                     img_lema_pil = img_lema_pil.crop(bbox)
@@ -218,18 +216,36 @@ class InventarioBienesApp:
                 bg=bg_panel_modo, fg=fg_texto_modo, bd=0, highlightthickness=1,
                 highlightbackground=pal["border_panel"], highlightcolor=pal["border_panel"]
             )
+            
+        if hasattr(self, 'frame_subform_container'):
+            self.frame_subform_container.config(
+                bg=bg_panel_modo, highlightbackground=pal["border_panel"]
+            )
+            if hasattr(self, 'lbl_titulo_sub'):
+                self.lbl_titulo_sub.config(bg=bg_panel_modo, fg=fg_texto_modo)
+            if hasattr(self, 'grid_perif'):
+                self.grid_perif.config(bg=bg_panel_modo)
 
         for lbl in getattr(self, 'labels_texto', []):
-            lbl.config(bg=bg_panel_modo, fg=fg_texto_modo, font=FONT_LABEL)
+            try:
+                lbl.config(bg=bg_panel_modo, fg=fg_texto_modo, font=FONT_LABEL)
+            except Exception:
+                pass
             
         for f in getattr(self, 'frames_form_internos', []):
-            f.config(bg=bg_panel_modo)
+            try:
+                f.config(bg=bg_panel_modo)
+            except Exception:
+                pass
 
         for entry in getattr(self, 'entries_widgets', []):
-            entry.config(
-                bg=pal["entry_bg"], fg=pal["entry_fg"], insertbackground=pal["entry_fg"],
-                highlightbackground=pal["entry_border"], highlightthickness=1, font=FONT_LABEL, bd=0
-            )
+            try:
+                entry.config(
+                    bg=pal["entry_bg"], fg=pal["entry_fg"], insertbackground=pal["entry_fg"],
+                    highlightbackground=pal["entry_border"], highlightthickness=1, font=FONT_LABEL, bd=0
+                )
+            except Exception:
+                pass
 
         self.style.theme_use("default")
         self.style.configure(
@@ -248,7 +264,6 @@ class InventarioBienesApp:
         if hasattr(self, 'lbl_icon_buscar'):
             self.lbl_icon_buscar.config(bg=pal["bg_root"], fg=pal["fg_texto"], font=FONT_LABEL)
 
-        # Renderizar estado de tarjetas KPI (con efecto de selección si corresponde)
         self.actualizar_estilo_tarjetas_kpi()
 
         if hasattr(self, 'tabla'):
@@ -279,19 +294,15 @@ class InventarioBienesApp:
             titulo_base = card_info["titulo_original"]
             color_acento = cfg["text"]
 
-            # Evaluación de estado activo
             esta_activa = (self.filtro_metrica_activa == clave_kpi and clave_kpi != "TODOS")
 
-            # Colores dinámicos para simular brillo / iluminación interna
             bg_tarjeta = cfg["active_bg"] if esta_activa else cfg["bg"]
             borde_color = cfg["active_border"] if esta_activa else cfg["border"]
             
-            # --- OPCIÓN 2: Ajuste de borde y padding compensatorio ---
             grosor_borde = 3 if esta_activa else 1
-            padx_comp = 6 if esta_activa else 8  # Restamos 2px por los lados
-            pady_comp = 4 if esta_activa else 6  # Restamos 2px por arriba/abajo
+            padx_comp = 6 if esta_activa else 8
+            pady_comp = 4 if esta_activa else 6
 
-            # Texto del título dinámico
             texto_titulo = f"✓ {titulo_base}" if esta_activa else titulo_base
 
             card_info["card"].config(
@@ -301,13 +312,7 @@ class InventarioBienesApp:
                 highlightthickness=grosor_borde
             )
             card_info["strip"].config(bg=color_acento if not esta_activa else borde_color)
-            
-            # Aplicamos el padding compensatorio al marco interno de contenido
-            card_info["content"].config(
-                bg=bg_tarjeta,
-                padx=padx_comp,
-                pady=pady_comp
-            )
+            card_info["content"].config(bg=bg_tarjeta, padx=padx_comp, pady=pady_comp)
 
             if "top_frame" in card_info: card_info["top_frame"].config(bg=bg_tarjeta)
             if "left_col" in card_info: card_info["left_col"].config(bg=bg_tarjeta)
@@ -320,12 +325,11 @@ class InventarioBienesApp:
             card_info["sub"].config(bg=bg_tarjeta, fg=cfg["sub"], font=FONT_LABEL)
             card_info["icon"].config(bg=bg_tarjeta, fg=borde_color if esta_activa else color_acento)
             card_info["val"].config(bg=bg_tarjeta, fg=cfg["val"], font=FONT_KPI_VAL)
-                  
 
     # --- TARJETAS MÉTRICAS ---
     def crear_panel_metricas(self):
         self.frame_kpis = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
-        self.frame_kpis.grid(row=1, column=0, sticky="ew", padx=15, pady=(10, 5))
+        self.frame_kpis.grid(row=1, column=0, sticky="ew", padx=15, pady=(8, 2))
 
         for i in range(5):
             self.frame_kpis.columnconfigure(i, weight=1, uniform="kpi")
@@ -346,20 +350,16 @@ class InventarioBienesApp:
             elif col == 2: self.lbl_val_preventivos = val_widget
             elif col == 3: self.lbl_val_correctivos = val_widget
             elif col == 4: self.lbl_val_desincorporados = val_widget
-            
-
-    
-
 
     def crear_tarjeta(self, col, titulo, valor_inicial, subtitulo, icono="📊", clave="TODOS", color_acento="#1E3A8A"):
         card = tk.Frame(self.frame_kpis, bd=0, highlightthickness=1, cursor="hand2")
-        card.grid(row=0, column=col, sticky="nsew", padx=4)
+        card.grid(row=0, column=col, sticky="nsew", padx=3)
 
         strip = tk.Frame(card, width=4, bg=color_acento, bd=0, highlightthickness=0, cursor="hand2")
         strip.pack(side="left", fill="y")
 
         content = tk.Frame(card, bd=0, highlightthickness=0, cursor="hand2")
-        content.pack(side="left", fill="both", expand=True, padx=8, pady=6)
+        content.pack(side="left", fill="both", expand=True, padx=8, pady=5)
 
         top_frame = tk.Frame(content, bd=0, highlightthickness=0, cursor="hand2")
         top_frame.pack(fill="x")
@@ -368,7 +368,7 @@ class InventarioBienesApp:
         lbl_tit.pack(fill="x")
 
         linea_div = tk.Frame(top_frame, height=2, bg=color_acento, bd=0, highlightthickness=0, cursor="hand2")
-        linea_div.pack(fill="x", pady=(2, 6))
+        linea_div.pack(fill="x", pady=(2, 4))
 
         body_frame = tk.Frame(content, bd=0, highlightthickness=0, cursor="hand2")
         body_frame.pack(fill="both", expand=True)
@@ -376,20 +376,19 @@ class InventarioBienesApp:
         left_col = tk.Frame(body_frame, bd=0, highlightthickness=0, cursor="hand2")
         left_col.pack(side="left", fill="both", expand=True)
 
-        lbl_val = tk.Label(left_col, text=valor_inicial, font=("Segoe UI", 18, "bold"), anchor="w", cursor="hand2")
+        lbl_val = tk.Label(left_col, text=valor_inicial, font=("Segoe UI", 16, "bold"), anchor="w", cursor="hand2")
         lbl_val.pack(fill="x")
 
-        lbl_sub = tk.Label(left_col, text=subtitulo, font=("Segoe UI", 8), fg=color_acento, anchor="w", cursor="hand2")
+        lbl_sub = tk.Label(left_col, text=subtitulo, font=("Segoe UI", 7), fg=color_acento, anchor="w", cursor="hand2")
         lbl_sub.pack(fill="x")
 
-        right_col = tk.Frame(body_frame, width=35, bd=0, highlightthickness=0, cursor="hand2")
+        right_col = tk.Frame(body_frame, width=30, bd=0, highlightthickness=0, cursor="hand2")
         right_col.pack_propagate(False)
         right_col.pack(side="right", fill="y")
 
-        lbl_icon = tk.Label(right_col, text=icono, font=("Segoe UI", 16), fg=color_acento, anchor="e", cursor="hand2")
+        lbl_icon = tk.Label(right_col, text=icono, font=("Segoe UI", 14), fg=color_acento, anchor="e", cursor="hand2")
         lbl_icon.pack(expand=True, fill="both")
 
-        # Vincular evento de clic en todos los componentes de la tarjeta
         elementos_clic = [card, strip, content, top_frame, lbl_tit, linea_div, body_frame, left_col, lbl_val, lbl_sub, right_col, lbl_icon]
         for elem in elementos_clic:
             elem.bind("<Button-1>", lambda event, c=clave: self.filtrar_por_metrica(c))
@@ -398,15 +397,12 @@ class InventarioBienesApp:
             "card": card, "strip": strip, "content": content, "top_frame": top_frame,
             "linea": linea_div, "head": body_frame, "left_col": left_col, "right_col": right_col,
             "tit": lbl_tit, "icon": lbl_icon, "val": lbl_val, "sub": lbl_sub, "acento": color_acento,
-            "clave": clave,
-            "titulo_original": titulo  # <-- Agregar esta línea aquí
+            "clave": clave, "titulo_original": titulo
         })
         return lbl_val
 
     def filtrar_por_metrica(self, clave):
-        """Filtra los datos de la tabla al hacer clic en un KPI y cambia el aspecto visual."""
         if self.filtro_metrica_activa == clave and clave != "TODOS":
-            # Si se hace clic en el mismo filtro activo, vuelve a mostrar todos
             self.filtro_metrica_activa = "TODOS"
         else:
             self.filtro_metrica_activa = clave
@@ -433,13 +429,42 @@ class InventarioBienesApp:
         self.lbl_val_correctivos.config(text=str(correctivos))
         self.lbl_val_desincorporados.config(text=str(desincorporados))
 
-    # --- FORMULARIO ---
+    def cargar_perifericos_en_formulario(self, bien):
+        """Visualiza y carga los datos de periféricos del bien seleccionado en el subformulario."""
+        perifs = bien.get("perifericos", {})
+        
+        if perifs:
+            self.mostrar_subformulario_perifericos()
+            self.subform_manual_toggle = True
+            for clave, p_data in perifs.items():
+                if clave in self.perifericos_widgets:
+                    self.perifericos_widgets[clave]["estado"].set(p_data.get("estado", "Operativo"))
+                    self.perifericos_widgets[clave]["observacion"].delete(0, tk.END)
+                    self.perifericos_widgets[clave]["observacion"].insert(0, p_data.get("detalle", ""))
+        else:
+            self.ocultar_subformulario_perifericos()
+            self.subform_manual_toggle = False
+    
+    def obtener_datos_perifericos_actualizados(self):
+        """Extrae el estado y las observaciones modificadas de los periféricos."""
+        perifs_dict = {}
+        if hasattr(self, 'perifericos_widgets') and self.subform_desplegado:
+            for clave, widgets in self.perifericos_widgets.items():
+                perifs_dict[clave] = {
+                    "estado": widgets["estado"].get(),
+                    "detalle": widgets["observacion"].get().strip()
+                }
+        return perifs_dict
+    
+
+
+    # --- FORMULARIO & SUBFORMULARIO DE PERIFÉRICOS ---
     def crear_formulario(self):
         self.frame_form = tk.LabelFrame(
             self.root, text=" Registrar Activo y Gestión de Mantenimiento ",
             font=("Segoe UI", 9, "bold"), bd=1, relief="solid"
         )
-        self.frame_form.grid(row=2, column=0, sticky="ew", padx=15, pady=5)
+        self.frame_form.grid(row=2, column=0, sticky="ew", padx=15, pady=4)
         self.frame_form.columnconfigure(1, weight=1)
         self.frame_form.columnconfigure(3, weight=2)
         self.frame_form.columnconfigure(5, weight=1)
@@ -447,68 +472,157 @@ class InventarioBienesApp:
         self.frames_form_internos = []
         
         lbl1 = tk.Label(self.frame_form, text="ID único:", font=("Segoe UI", 8, "bold"))
-        lbl1.grid(row=0, column=0, padx=(10, 5), pady=4, sticky="e")
+        lbl1.grid(row=0, column=0, padx=(10, 5), pady=3, sticky="e")
         self.entry_id = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
-        self.entry_id.grid(row=0, column=1, padx=5, pady=4, sticky="ew")
+        self.entry_id.grid(row=0, column=1, padx=5, pady=3, sticky="ew")
         
         lbl2 = tk.Label(self.frame_form, text="Asignado a:", font=("Segoe UI", 8, "bold"))
-        lbl2.grid(row=0, column=2, padx=(10, 5), pady=4, sticky="e")
+        lbl2.grid(row=0, column=2, padx=(10, 5), pady=3, sticky="e")
         
         opciones_asignacion = ["Departamento de Sistemas", "Administración", "Laboratorio 1", "Rectorado"]
         self.combo_asignado = ttk.Combobox(
             self.frame_form, values=opciones_asignacion, font=("Segoe UI", 9), state="readonly", style="TCombobox"
         )
-        self.combo_asignado.grid(row=0, column=3, columnspan=3, padx=5, pady=4, sticky="ew")
+        self.combo_asignado.grid(row=0, column=3, columnspan=3, padx=5, pady=3, sticky="ew")
         if opciones_asignacion: self.combo_asignado.current(0)
             
         frame_btn_form = tk.Frame(self.frame_form)
-        frame_btn_form.grid(row=0, column=6, rowspan=4, padx=10, pady=4, sticky="ns")
+        frame_btn_form.grid(row=0, column=6, rowspan=4, padx=10, pady=3, sticky="ns")
         self.frames_form_internos.append(frame_btn_form)
 
-        tk.Button(frame_btn_form, text="Registrar Nuevo", bg="#0284C7", fg="white", font=("Segoe UI", 8, "bold"), command=self.agregar_bien, bd=0, padx=10, pady=4, cursor="hand2").pack(fill="x", pady=2)
-        tk.Button(frame_btn_form, text="Guardar Cambios", bg="#059669", fg="white", font=("Segoe UI", 8, "bold"), command=self.actualizar_bien, bd=0, padx=10, pady=4, cursor="hand2").pack(fill="x", pady=2)
-        tk.Button(frame_btn_form, text="Limpiar Campos", bg="#6b7280", fg="white", font=("Segoe UI", 8, "bold"), command=self.limpiar_formulario, bd=0, padx=10, pady=3, cursor="hand2").pack(fill="x", pady=2)
+        tk.Button(frame_btn_form, text="Registrar Nuevo", bg="#0284C7", fg="white", font=("Segoe UI", 8, "bold"), command=self.agregar_bien, bd=0, padx=10, pady=3, cursor="hand2").pack(fill="x", pady=2)
+        tk.Button(frame_btn_form, text="Guardar Cambios", bg="#059669", fg="white", font=("Segoe UI", 8, "bold"), command=self.actualizar_bien, bd=0, padx=10, pady=3, cursor="hand2").pack(fill="x", pady=2)
+        
+        # Botón para alternar la Ficha de Periféricos manualmente
+        self.btn_toggle_perifericos = tk.Button(
+            frame_btn_form, text="⚙️ Ficha Periféricos", font=("Segoe UI", 8, "bold"),
+            command=self.toggle_manual_perifericos, bd=0, padx=8, pady=2, cursor="hand2"
+        )
+        self.btn_toggle_perifericos.pack(fill="x", pady=2)
+
+        tk.Button(frame_btn_form, text="Limpiar Campos", bg="#6b7280", fg="white", font=("Segoe UI", 8, "bold"), command=self.limpiar_formulario, bd=0, padx=10, pady=2, cursor="hand2").pack(fill="x", pady=2)
         
         lbl3 = tk.Label(self.frame_form, text="Descripción / Nombre:", font=("Segoe UI", 8, "bold"))
-        lbl3.grid(row=1, column=0, padx=(10, 5), pady=4, sticky="e")
+        lbl3.grid(row=1, column=0, padx=(10, 5), pady=3, sticky="e")
         self.entry_nombre = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
-        self.entry_nombre.grid(row=1, column=1, columnspan=5, padx=5, pady=4, sticky="ew")
+        self.entry_nombre.grid(row=1, column=1, columnspan=5, padx=5, pady=3, sticky="ew")
+        self.entry_nombre.bind("<KeyRelease>", self.al_cambiar_texto_nombre)
         
         lbl4 = tk.Label(self.frame_form, text="¿Mantenimiento?:", font=("Segoe UI", 8, "bold"))
-        lbl4.grid(row=2, column=0, padx=(10, 5), pady=4, sticky="e")
+        lbl4.grid(row=2, column=0, padx=(10, 5), pady=3, sticky="e")
         self.combo_mant = ttk.Combobox(self.frame_form, values=["No", "Sí (Preventivo)", "Sí (Correctivo)"], font=("Segoe UI", 9), width=15, state="readonly")
         self.combo_mant.current(0)
-        self.combo_mant.grid(row=2, column=1, padx=5, pady=4, sticky="w")
+        self.combo_mant.grid(row=2, column=1, padx=5, pady=3, sticky="w")
         
         lbl5 = tk.Label(self.frame_form, text="Fecha (DD/MM/AAAA):", font=("Segoe UI", 8, "bold"))
-        lbl5.grid(row=2, column=2, padx=(10, 5), pady=4, sticky="e")
+        lbl5.grid(row=2, column=2, padx=(10, 5), pady=3, sticky="e")
         self.entry_fecha_mant = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
         self.entry_fecha_mant.insert(0, date.today().strftime("%d/%m/%Y"))
-        self.entry_fecha_mant.grid(row=2, column=3, padx=5, pady=4, sticky="ew")
+        self.entry_fecha_mant.grid(row=2, column=3, padx=5, pady=3, sticky="ew")
         self.entry_fecha_mant.bind("<KeyRelease>", self.al_cambiar_fecha)
         
         lbl6 = tk.Label(self.frame_form, text="Próximo (Hábil +3M):", font=("Segoe UI", 8, "bold"))
-        lbl6.grid(row=2, column=4, padx=(10, 5), pady=4, sticky="e")
+        lbl6.grid(row=2, column=4, padx=(10, 5), pady=3, sticky="e")
         self.entry_proximo = tk.Entry(self.frame_form, font=("Segoe UI", 9, "bold"), relief="solid", bd=1)
-        self.entry_proximo.grid(row=2, column=5, padx=5, pady=4, sticky="ew")
+        self.entry_proximo.grid(row=2, column=5, padx=5, pady=3, sticky="ew")
         
         lbl7 = tk.Label(self.frame_form, text="Detalle / Observación:", font=("Segoe UI", 8, "bold"))
-        lbl7.grid(row=3, column=0, padx=(10, 5), pady=4, sticky="e")
+        lbl7.grid(row=3, column=0, padx=(10, 5), pady=3, sticky="e")
         self.entry_desc_mant = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
-        self.entry_desc_mant.grid(row=3, column=1, columnspan=5, padx=5, pady=4, sticky="ew")
+        self.entry_desc_mant.grid(row=3, column=1, columnspan=5, padx=5, pady=3, sticky="ew")
 
         self.labels_texto.extend([lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7])
         self.entries_widgets.extend([self.entry_id, self.entry_nombre, self.entry_fecha_mant, self.entry_desc_mant])
 
+        # Construir subformulario oculto por defecto
+        self.construir_subformulario_perifericos()
+
+    def construir_subformulario_perifericos(self):
+        self.frame_subform_container = tk.Frame(self.frame_form, bd=0, highlightthickness=1)
+        self.frame_subform_container.grid(row=4, column=0, columnspan=7, sticky="ew", padx=8, pady=(4, 6))
+        self.frame_subform_container.grid_forget()
+
+        self.lbl_titulo_sub = tk.Label(self.frame_subform_container, text="Ficha Técnica de Periféricos e Integridad de Equipos de Computación", font=("Segoe UI", 8, "bold"))
+        self.lbl_titulo_sub.pack(anchor="w", padx=8, pady=(4, 2))
+
+        self.perifericos_widgets = {}
+        elementos = [
+            ("Monitor", "monitor"),
+            ("Teclado", "teclado"),
+            ("Mouse", "mouse"),
+            ("CPU / Internos", "cpu")
+        ]
+
+        self.grid_perif = tk.Frame(self.frame_subform_container)
+        self.grid_perif.pack(fill="x", padx=8, pady=2)
+
+        for idx, (label_txt, clave) in enumerate(elementos):
+            self.grid_perif.columnconfigure(idx, weight=1)
+            
+            card = tk.LabelFrame(self.grid_perif, text=f" {label_txt} ", font=("Segoe UI", 8, "bold"), bd=1, relief="solid", padx=4, pady=4)
+            card.grid(row=0, column=idx, sticky="nsew", padx=2, pady=2)
+
+            tk.Label(card, text="Estado:", font=("Segoe UI", 7)).pack(anchor="w")
+            combo_est = ttk.Combobox(card, values=["Operativo", "Dañado", "Ausente", "N/A"], font=("Segoe UI", 8), state="readonly")
+            combo_est.current(0)
+            combo_est.pack(fill="x", pady=(0, 2))
+
+            tk.Label(card, text="Observación:", font=("Segoe UI", 7)).pack(anchor="w")
+            entry_obs = tk.Entry(card, font=("Segoe UI", 8), relief="solid", bd=1)
+            entry_obs.pack(fill="x")
+            self.entries_widgets.append(entry_obs)
+
+            self.perifericos_widgets[clave] = {
+                "card": card,
+                "estado": combo_est,
+                "observacion": entry_obs
+            }
+
+    def toggle_manual_perifericos(self):
+        self.subform_manual_toggle = True
+        if self.subform_desplegado:
+            self.ocultar_subformulario_perifericos()
+        else:
+            self.mostrar_subformulario_perifericos()
+
+    def al_cambiar_texto_nombre(self, event=None):
+        texto = self.entry_nombre.get().strip()
+        if es_activo_compuesto(texto):
+            if not self.subform_desplegado:
+                self.mostrar_subformulario_perifericos()
+        else:
+            if self.subform_desplegado and not self.subform_manual_toggle:
+                if not self.tiene_datos_en_perifericos():
+                    self.ocultar_subformulario_perifericos()
+
+    def mostrar_subformulario_perifericos(self):
+        self.frame_subform_container.grid(row=4, column=0, columnspan=7, sticky="ew", padx=8, pady=(4, 6))
+        self.subform_desplegado = True
+        self.btn_toggle_perifericos.config(text="⚙️ Ficha Activa (▲)", bg="#0284c7", fg="#ffffff")
+        self.aplicar_tema_widgets()
+
+    def ocultar_subformulario_perifericos(self):
+        self.frame_subform_container.grid_forget()
+        self.subform_desplegado = False
+        self.btn_toggle_perifericos.config(text="⚙️ Ficha Periféricos")
+
+    def tiene_datos_en_perifericos(self):
+        if not hasattr(self, 'perifericos_widgets'):
+            return False
+        for p_data in self.perifericos_widgets.values():
+            if p_data["estado"].get() not in ["Operativo", "N/A"] or p_data["observacion"].get().strip():
+                return True
+        return False
+
     # --- BÚSQUEDA ---
     def crear_panel_busqueda(self):
         self.frame_busqueda = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
-        self.frame_busqueda.grid(row=3, column=0, sticky="ew", padx=15, pady=(4, 2))
+        self.frame_busqueda.grid(row=3, column=0, sticky="ew", padx=15, pady=(2, 2))
         
         self.lbl_icon_buscar = tk.Label(self.frame_busqueda, text="🔍 Buscar Activo:", font=("Segoe UI", 8, "bold"))
         self.lbl_icon_buscar.pack(side="left", padx=(0, 5))
         
-        self.entry_buscar = tk.Entry(self.frame_busqueda, font=("Segoe UI", 9), relief="solid", bd=1, width=20)
+        self.entry_buscar = tk.Entry(self.frame_busqueda, font=("Segoe UI", 9), relief="solid", bd=1, width=22)
         self.entry_buscar.pack(side="left", padx=5)
         self.entry_buscar.bind("<KeyRelease>", self.filtrar_tabla)
         self.entries_widgets.append(self.entry_buscar)
@@ -521,11 +635,10 @@ class InventarioBienesApp:
     # --- TABLA DE DATOS Y MENÚ CONTEXTUAL ---
     def crear_tabla(self):
         self.frame_tabla = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
-        self.frame_tabla.grid(row=4, column=0, sticky="nsew", padx=15, pady=4)
+        self.frame_tabla.grid(row=4, column=0, sticky="nsew", padx=15, pady=2)
         self.frame_tabla.rowconfigure(0, weight=1)
         self.frame_tabla.columnconfigure(0, weight=1)
 
-        
         columnas = ("id", "nombre", "asignado_a", "mantenimiento", "fecha_mant", "proximo_mant")
         self.tabla = ttk.Treeview(self.frame_tabla, columns=columnas, show="headings")
         self.tabla.heading("id", text="ID Activo")
@@ -551,23 +664,15 @@ class InventarioBienesApp:
         
         self.tabla.grid(row=0, column=0, sticky="nsew")
         scrollbar.grid(row=0, column=1, sticky="ns")
-            
 
     def crear_menu_contextual(self):
         self.menu_contextual = tk.Menu(self.root, tearoff=0, font=("Segoe UI", 9))
-        
-        self.menu_contextual.add_command(
-            label="✏️ Editar Activo",
-            command=self.cargar_seleccion_para_editar
-        )
+        self.menu_contextual.add_command(label="✏️ Editar Activo", command=self.cargar_seleccion_para_editar)
         self.menu_contextual.add_separator()
-        
         self.menu_contextual.add_command(
             label="❌ Dar de Baja / Generar Acta PDF",
             command=self.dar_de_baja_bien,
-            foreground="#dc2626",
-            activeforeground="#ffffff",
-            activebackground="#dc2626"
+            foreground="#dc2626", activeforeground="#ffffff", activebackground="#dc2626"
         )
 
     def mostrar_menu_contextual(self, event):
@@ -580,25 +685,16 @@ class InventarioBienesApp:
     # --- ACCIONES / PANEL INFERIOR ---
     def crear_panel_acciones(self):
         self.frame_acciones = tk.Frame(self.root, bg=self.PALETA["claro"]["bg_root"])
-        self.frame_acciones.grid(row=5, column=0, sticky="ew", padx=15, pady=(4, 10))
+        self.frame_acciones.grid(row=5, column=0, sticky="ew", padx=15, pady=(2, 8))
         
         tk.Button(
-            self.frame_acciones, 
-            text="☁️ Centro de Respaldos", 
-            bg="#0284C7", 
-            fg="white", 
-            activebackground="#0369a1",
-            activeforeground="white",
-            font=("Segoe UI", 8, "bold"), 
-            command=self.abrir_ventana_respaldos, 
-            bd=0, 
-            padx=14, 
-            pady=6, 
-            cursor="hand2"
+            self.frame_acciones, text="☁️ Centro de Respaldos", bg="#0284C7", fg="white",
+            activebackground="#0369a1", activeforeground="white", font=("Segoe UI", 8, "bold"),
+            command=self.abrir_ventana_respaldos, bd=0, padx=14, pady=5, cursor="hand2"
         ).pack(side="left")
         
         self.lbl_info_pie = tk.Label(self.frame_acciones, text="SIGAR V2.5 — UNELLEZ", font=("Segoe UI", 8, "bold"))
-        self.lbl_info_pie.pack(side="right", pady=3)
+        self.lbl_info_pie.pack(side="right", pady=2)
 
     # --- VENTANA EMERGENTE DE RESPALDOS ---
     def abrir_ventana_respaldos(self):
@@ -620,99 +716,33 @@ class InventarioBienesApp:
         y = (modal.winfo_screenheight() // 2) - (h // 2)
         modal.geometry(f"{w}x{h}+{x}+{y}")
 
-        lbl_titulo = tk.Label(
-            modal, 
-            text="☁️ Sincronización y Respaldos", 
-            font=("Segoe UI", 12, "bold"), 
-            fg=pal["fg_texto"], 
-            bg=pal["bg_root"]
-        )
-        lbl_titulo.pack(pady=(15, 5))
-
-        lbl_sub = tk.Label(
-            modal, 
-            text="Seleccione la acción de respaldo que desea ejecutar:", 
-            font=("Segoe UI", 8), 
-            fg=pal["fg_subtexto"], 
-            bg=pal["bg_root"]
-        )
-        lbl_sub.pack(pady=(0, 15))
+        tk.Label(modal, text="☁️ Sincronización y Respaldos", font=("Segoe UI", 12, "bold"), fg=pal["fg_texto"], bg=pal["bg_root"]).pack(pady=(15, 5))
+        tk.Label(modal, text="Seleccione la acción de respaldo que desea ejecutar:", font=("Segoe UI", 8), fg=pal["fg_subtexto"], bg=pal["bg_root"]).pack(pady=(0, 15))
 
         frame_botones = tk.Frame(modal, bg=pal["bg_root"])
         frame_botones.pack(fill="both", expand=True, padx=25, pady=5)
 
-        btn_nube = tk.Button(
-            frame_botones,
-            text="☁️ Exportar / Guardar Respaldo en la Nube",
-            bg="#0284C7",
-            fg="white",
-            activebackground="#0369a1",
-            activeforeground="white",
-            font=("Segoe UI", 9, "bold"),
-            bd=0,
-            pady=8,
-            cursor="hand2",
-            command=lambda: self.accion_guardar_nube(modal)
-        )
-        btn_nube.pack(fill="x", pady=4)
+        tk.Button(frame_botones, text="☁️ Exportar / Guardar Respaldo en la Nube", bg="#0284C7", fg="white", font=("Segoe UI", 9, "bold"), bd=0, pady=8, cursor="hand2", command=lambda: self.accion_guardar_nube(modal)).pack(fill="x", pady=4)
+        tk.Button(frame_botones, text="📥 Importar / Restaurar desde la Nube", bg="#0D9488", fg="white", font=("Segoe UI", 9, "bold"), bd=0, pady=8, cursor="hand2", command=lambda: self.accion_importar_nube(modal)).pack(fill="x", pady=4)
+        tk.Button(frame_botones, text="💾 Guardar Respaldo Local (Copiar JSON)", bg="#475569", fg="white", font=("Segoe UI", 9, "bold"), bd=0, pady=8, cursor="hand2", command=lambda: self.accion_guardar_local(modal)).pack(fill="x", pady=4)
 
-        btn_importar = tk.Button(
-            frame_botones,
-            text="📥 Importar / Restaurar desde la Nube",
-            bg="#0D9488",
-            fg="white",
-            activebackground="#0F766E",
-            activeforeground="white",
-            font=("Segoe UI", 9, "bold"),
-            bd=0,
-            pady=8,
-            cursor="hand2",
-            command=lambda: self.accion_importar_nube(modal)
-        )
-        btn_importar.pack(fill="x", pady=4)
-
-        btn_local = tk.Button(
-            frame_botones,
-            text="💾 Guardar Respaldo Local (Copiar JSON)",
-            bg="#475569",
-            fg="white",
-            activebackground="#334155",
-            activeforeground="white",
-            font=("Segoe UI", 9, "bold"),
-            bd=0,
-            pady=8,
-            cursor="hand2",
-            command=lambda: self.accion_guardar_local(modal)
-        )
-        btn_local.pack(fill="x", pady=4)
-
-    # --- ACCIONES FRONTEND DE RESPALDO ---
     def accion_guardar_nube(self, modal):
-        # Opcional: Cerrar la ventanita modal actual primero
         try:
             modal.destroy()
         except Exception:
             pass
         exportar_respaldo_nube_bd(parent_window=self.root)
 
-
     def accion_importar_nube(self, modal):
         if not HAS_REQUESTS:
             messagebox.showinfo("Librería Pendiente", "Se requiere la librería 'requests' instalada para recibir datos de la API.", parent=modal)
             return
-
-        messagebox.showinfo(
-            "Conexión Backend", 
-            f"Frontend preparado para consultar e importar datos desde la API:\n\nEndpoint: {URL_RESPALDO_CLOUD}", 
-            parent=modal
-        )
+        messagebox.showinfo("Conexión Backend", f"Frontend preparado para consultar e importar datos desde la API:\n\nEndpoint: {URL_RESPALDO_CLOUD}", parent=modal)
 
     def accion_guardar_local(self, modal):
         try:
             filename = filedialog.asksaveasfilename(
-                parent=modal,
-                title="Guardar Respaldo Local",
-                defaultextension=".json",
+                parent=modal, title="Guardar Respaldo Local", defaultextension=".json",
                 filetypes=[("Archivos JSON", "*.json"), ("Todos los archivos", "*.*")],
                 initialfile=f"respaldo_sigar_{date.today().strftime('%Y%m%d')}.json"
             )
@@ -747,13 +777,22 @@ class InventarioBienesApp:
         if any(b["id"] == id_int for b in self.bienes):
             messagebox.showwarning("ID Duplicado", f"El activo con ID {id_int} ya existe en el sistema.")
             return
+
+        perifs_dict = {}
+        if hasattr(self, 'perifericos_widgets') and self.subform_desplegado:
+            for clave, widgets in self.perifericos_widgets.items():
+                perifs_dict[clave] = {
+                    "estado": widgets["estado"].get(),
+                    "detalle": widgets["observacion"].get().strip()
+                }
             
         nuevo_bien = {
             "id": id_int, "nombre": nombre_val, "asignado_a": asignado_val,
             "mantenimiento": mant_val,
             "fecha_mant": fecha_mant_val if mant_val != "No" else "N/A",
             "proximo_mant": proximo_val if mant_val != "No" else "N/A",
-            "desc_mant": desc_mant_val if mant_val != "No" else ""
+            "desc_mant": desc_mant_val if mant_val != "No" else "",
+            "perifericos": perifs_dict if self.subform_desplegado else {}
         }
         
         self.bienes.append(nuevo_bien)
@@ -786,18 +825,32 @@ class InventarioBienesApp:
             messagebox.showwarning("Campos Incompletos", "Por favor, complete la Descripción/Nombre y 'Asignado a'.")
             return
 
+        perifs_dict = self.obtener_datos_perifericos_actualizados()
+
+        Bien_actualizado = {
+            "id": id_int,
+            "nombre": nombre_val,
+            "asignado_a": asignado_val,
+            "mantenimiento": mant_val,
+            "fecha_mant": fecha_mant_val if mant_val != "No" else "N/A",
+            "proximo_mant": proximo_val if mant_val != "No" else "N/A",
+            "desc_mant": desc_mant_val if mant_val != "No" else "",
+            "perifericos": perifs_dict if self.subform_desplegado else {}
+        }
+
         index = next((i for i, b in enumerate(self.bienes) if b["id"] == id_int), None)
         if index is None:
             messagebox.showerror("No Encontrado", f"No se encontró ningún activo con el ID {id_int}.")
             return
+
+        perifs_dict = {}
+        if hasattr(self, 'perifericos_widgets') and self.subform_desplegado:
+            for clave, widgets in self.perifericos_widgets.items():
+                perifs_dict[clave] = {
+                    "estado": widgets["estado"].get(),
+                    "detalle": widgets["observacion"].get().strip()
+                }
             
-        self.bienes[index] = {
-            "id": id_int, "nombre": nombre_val, "asignado_a": asignado_val,
-            "mantenimiento": mant_val,
-            "fecha_mant": fecha_mant_val if mant_val != "No" else "N/A",
-            "proximo_mant": proximo_val if mant_val != "No" else "N/A",
-            "desc_mant": desc_mant_val if mant_val != "No" else ""
-        }
         
         if guardar_datos_locales(self.bienes):
             self.actualizar_tabla()
@@ -837,6 +890,7 @@ class InventarioBienesApp:
                 "mantenimiento": bien_objetivo.get("mantenimiento", "N/A") if bien_objetivo else "N/A",
                 "fecha_ultimo_mant": bien_objetivo.get("fecha_mant", "N/A") if bien_objetivo else "N/A",
                 "desc_mant": bien_objetivo.get("desc_mant", "") if bien_objetivo else "",
+                "perifericos": bien_objetivo.get("perifericos", {}) if bien_objetivo else {},
                 "motivo_baja": motivo.strip(), "fecha_baja": fecha_hora_baja
             }
             
@@ -864,7 +918,6 @@ class InventarioBienesApp:
             desc_str = str(bien.get("desc_mant", "")).lower()
             mant_str = str(bien.get("mantenimiento", "")).strip()
 
-            # 1. Filtro por Métrica/KPI seleccionada
             cumple_metrica = True
             if self.filtro_metrica_activa == "OPERATIVOS":
                 cumple_metrica = (mant_str == "No")
@@ -873,12 +926,11 @@ class InventarioBienesApp:
             elif self.filtro_metrica_activa == "CORRECTIVOS":
                 cumple_metrica = ("Correctivo" in mant_str)
             elif self.filtro_metrica_activa == "DESINCORPORADOS":
-                cumple_metrica = False  # Los desincorporados se guardan aparte en bajas
+                cumple_metrica = False
 
             if not cumple_metrica:
                 continue
 
-            # 2. Filtro de búsqueda por texto
             if criterio in id_str or criterio in nombre_str or criterio in asignado_str or criterio in desc_str:
                 tag_fila = "par" if i % 2 == 0 else "impar"
                 self.tabla.insert("", "end", values=(
@@ -915,6 +967,20 @@ class InventarioBienesApp:
             self.entry_desc_mant.delete(0, tk.END)
             self.entry_desc_mant.insert(0, bien.get("desc_mant", ""))
             self.calcular_proxima_fecha_mantenimiento()
+
+            perifs = bien.get("perifericos", {})
+            if perifs:
+                self.mostrar_subformulario_perifericos()
+                self.subform_manual_toggle = True
+                for clave, p_data in perifs.items():
+                    if clave in self.perifericos_widgets:
+                        self.perifericos_widgets[clave]["estado"].set(p_data.get("estado", "Operativo"))
+                        self.perifericos_widgets[clave]["observacion"].delete(0, tk.END)
+                        self.perifericos_widgets[clave]["observacion"].insert(0, p_data.get("detalle", ""))
+            else:
+                self.ocultar_subformulario_perifericos()
+                self.subform_manual_toggle = False
+
             self.entry_nombre.focus_force()
 
     def limpiar_formulario(self):
@@ -924,6 +990,14 @@ class InventarioBienesApp:
         self.entry_fecha_mant.delete(0, tk.END)
         self.entry_fecha_mant.insert(0, date.today().strftime("%d/%m/%Y"))
         self.combo_mant.current(0)
+        
+        if hasattr(self, 'perifericos_widgets'):
+            for p_data in self.perifericos_widgets.values():
+                p_data["estado"].current(0)
+                p_data["observacion"].delete(0, tk.END)
+        self.ocultar_subformulario_perifericos()
+        self.subform_manual_toggle = False
+
         self.calcular_proxima_fecha_mantenimiento()
         self.entry_id.focus_force()
 
