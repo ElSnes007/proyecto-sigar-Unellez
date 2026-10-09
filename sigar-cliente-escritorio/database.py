@@ -1,16 +1,27 @@
 # -*- coding: utf-8 -*-
+"""
+SIGAR (UNELLEZ) - database.py
+Gestión de persistencia local en JSON y sincronización con el respaldo en la nube.
+Compatible con Python 3.8.10+
+"""
 import os
 import datetime
 import json
-import requests
 from tkinter import messagebox, simpledialog
 
-# Obtiene la carpeta exacta donde vive database.py
+# Importación con fallback seguro para peticiones HTTP
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
+
 DIR_ACTUAL = os.path.dirname(os.path.abspath(__file__))
 ARCHIVO_BIENES = os.path.join(DIR_ACTUAL, "bienes.json") 
 ARCHIVO_BAJAS = os.path.join(DIR_ACTUAL, "bajas.json")
 ARCHIVO_CONFIG = os.path.join(DIR_ACTUAL, "config.json")
 URL_RESPALDO_CLOUD = "https://script.google.com/macros/s/AKfycbx1XpJ3iOdqa1mPsivMLLjGF0-hZ_IwLXgTadbqSO66Nb7yzVC5E2s3BTlUpUMbG3TF3w/exec"
+
 
 def cargar_datos_locales():
     """Carga los datos locales del sistema desde bienes.json."""
@@ -18,12 +29,14 @@ def cargar_datos_locales():
         try:
             with open(ARCHIVO_BIENES, "r", encoding="utf-8") as f:
                 return json.load(f)
-        except Exception:
+        except Exception as e:
+            print(f"Error al leer bienes.json: {e}")
             return []
     return []
 
+
 def guardar_datos_locales(datos):
-    """Guarda los datos en el almacenamiento local en bienes.json."""
+    """Guarda la lista completa de bienes en bienes.json."""
     try:
         with open(ARCHIVO_BIENES, "w", encoding="utf-8") as f:
             json.dump(datos, f, indent=4, ensure_ascii=False)
@@ -32,16 +45,48 @@ def guardar_datos_locales(datos):
         print(f"Error al guardar datos: {e}")
         return False
 
+
 def guardar_baja_local(baja):
-    pass
+    """Registra una desincorporación en bajas.json."""
+    bajas = []
+    if os.path.exists(ARCHIVO_BAJAS):
+        try:
+            with open(ARCHIVO_BAJAS, "r", encoding="utf-8") as f:
+                bajas = json.load(f)
+        except Exception:
+            bajas = []
+    bajas.append(baja)
+    try:
+        with open(ARCHIVO_BAJAS, "w", encoding="utf-8") as f:
+            json.dump(bajas, f, indent=4, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"Error al registrar baja: {e}")
+        return False
+
 
 def obtener_conteo_bajas():
+    """Obtiene el número de activos desincorporados registrados."""
+    if os.path.exists(ARCHIVO_BAJAS):
+        try:
+            with open(ARCHIVO_BAJAS, "r", encoding="utf-8") as f:
+                datos = json.load(f)
+                return len(datos)
+        except Exception:
+            return 0
     return 0
 
-# --- FUNCIÓN REAL PARA EL RESPALDO EN LA NUBE ---
+
 def exportar_respaldo_nube_bd(parent_window=None):
     """Solicita el correo, empaqueta los bienes locales en JSON y los envía a Google Sheets."""
-    # 1. Solicitar el correo mediante ventana emergente vinculada al padre
+    if not HAS_REQUESTS:
+        messagebox.showerror(
+            "Librería Requerida",
+            "La librería 'requests' no está instalada. Ejecute: pip install requests",
+            parent=parent_window
+        )
+        return
+
     correo = simpledialog.askstring(
         "Correo para la Nube", 
         "Ingrese el correo electrónico vinculado para el respaldo:", 
@@ -49,18 +94,16 @@ def exportar_respaldo_nube_bd(parent_window=None):
     )
     
     if not correo:
-        return # Si el usuario cancela, no hace nada
+        return
     
     if "@" not in correo or "." not in correo:
         messagebox.showerror("Error", "El correo electrónico ingresado no es válido.", parent=parent_window)
         return
 
-    # 2. Cargar los datos locales reales desde bienes.json
     lista_bienes = cargar_datos_locales()
     total_bienes = len(lista_bienes)
     fecha_actual = datetime.datetime.now().strftime("%Y-%m-%d %H:%M:%S")
 
-    # 3. Preparar el paquete con las columnas exactas de tu Google Sheets
     payload = {
         "fecha": fecha_actual,
         "correo": correo.strip(),
@@ -69,10 +112,8 @@ def exportar_respaldo_nube_bd(parent_window=None):
     }
 
     try:
-        # 4. Enviar los datos a la nube mediante una petición HTTP POST real
         response = requests.post(URL_RESPALDO_CLOUD, json=payload, timeout=15)
-        
-        if response.status_code == 200 or response.status_code == 201:
+        if response.status_code in [200, 201]:
             messagebox.showinfo(
                 "Éxito", 
                 f"¡Respaldo enviado y registrado en Google Sheets con éxito!\nAsociado a: {correo}", 
@@ -84,10 +125,9 @@ def exportar_respaldo_nube_bd(parent_window=None):
                 f"No se pudo guardar en la nube (Código {response.status_code}):\n{response.text}", 
                 parent=parent_window
             )
-
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         messagebox.showerror(
             "Error de Conexión", 
-            f"No se pudo conectar con Google Apps Script.\nVerifique su conexión a internet.\n\nDetalles: {str(e)}", 
+            f"No se pudo conectar con el servicio en la nube.\nVerifique su conexión a internet.\n\nDetalles: {str(e)}", 
             parent=parent_window
         )

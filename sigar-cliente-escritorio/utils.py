@@ -1,10 +1,15 @@
 # -*- coding: utf-8 -*-
+"""
+SIGAR (UNELLEZ) - utils.py
+Cálculos de fechas hábiles, detección de periféricos y generación de actas de desincorporación.
+Compatible con Python 3.8.10+
+"""
 import os
 import calendar
 import unicodedata
 from datetime import datetime, date, timedelta
 
-# Importaciones opcionales con fallback
+# Importaciones opcionales con fallback seguro
 try:
     from PIL import Image, ImageTk
     HAS_PIL = True
@@ -30,8 +35,9 @@ PALABRAS_CLAVE_COMPUESTOS = [
     "computadora", "computador", "pc", "escritorio", "desktop",
     "laptop", "portatil", "portátil", "servidor", "server",
     "all in one", "aio", "workstation", "estacion de trabajo",
-    "estación de trabajo", "ordenador", "cpu", "clon"
+    "estación de trabajo", "ordenador", "cpu", "clon", "clone"
 ]
+
 
 def es_activo_compuesto(texto):
     """Evalúa si la descripción o nombre corresponde a un equipo compuesto con periféricos."""
@@ -40,7 +46,7 @@ def es_activo_compuesto(texto):
     def quitar_tildes(cadena):
         return ''.join(c for c in unicodedata.normalize('NFD', cadena) if unicodedata.category(c) != 'Mn')
     
-    texto_norm = quitar_tildes(texto.lower().strip())
+    texto_norm = quitar_tildes(str(texto).lower().strip())
     for clave in PALABRAS_CLAVE_COMPUESTOS:
         if quitar_tildes(clave) in texto_norm:
             return True
@@ -48,6 +54,7 @@ def es_activo_compuesto(texto):
 
 
 def calcular_fecha_habil_3_meses(fecha_base):
+    """Calcula la próxima fecha de mantenimiento regular a 3 meses hábiles."""
     m = fecha_base.month - 1 + 3
     y = fecha_base.year + m // 12
     m = m % 12 + 1
@@ -63,6 +70,7 @@ def calcular_fecha_habil_3_meses(fecha_base):
 
 
 def generar_acta_baja(registro):
+    """Genera el acta oficial de desincorporación en formato PDF o TXT de respaldo."""
     nombre_base = f"Acta_Baja_ID_{registro.get('id', 'N/A')}"
     
     if HAS_REPORTLAB:

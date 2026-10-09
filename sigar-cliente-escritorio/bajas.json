@@ -1,0 +1,234 @@
+[
+    {
+        "id": 1,
+        "nombre": "Laptop Dell Latitude 3420 Core i7 16GB RAM SSD 512GB",
+        "asignado_a": "Coordinación de Sistemas",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_ultimo_mant": "15/05/2026",
+        "desc_mant": "Limpieza general y cambio de pasta térmica",
+        "perifericos": {},
+        "motivo_baja": "sthb",
+        "fecha_baja": "09/10/2026 00:07:55"
+    },
+    {
+        "id": 2,
+        "nombre": "Monitor LED 24 LG Full HD IPS",
+        "asignado_a": "Administración",
+        "mantenimiento": "No",
+        "fecha_ultimo_mant": "N/A",
+        "desc_mant": "Operativo sin novedades",
+        "perifericos": {},
+        "motivo_baja": "sfgn b",
+        "fecha_baja": "09/10/2026 00:08:02"
+    },
+    {
+        "id": 3,
+        "nombre": "Impresora HP LaserJet Pro M404dn",
+        "asignado_a": "Departamento de Sistemas",
+        "mantenimiento": "Sí (Correctivo)",
+        "fecha_ultimo_mant": "10/06/2026",
+        "desc_mant": "Reemplazo de rodillo de arrastre de papel",
+        "perifericos": {},
+        "motivo_baja": "añjerg",
+        "fecha_baja": "09/10/2026 00:08:12"
+    },
+    {
+        "id": 4,
+        "nombre": "PC de Escritorio HP ProDesk 400 G6 i5 8GB 1TB",
+        "asignado_a": "Administración",
+        "mantenimiento": "Sí (Correctivo)",
+        "fecha_ultimo_mant": "29/09/2026",
+        "desc_mant": "Reinstalación de sistema operativo y formateo",
+        "perifericos": {},
+        "motivo_baja": "iaerhbg",
+        "fecha_baja": "09/10/2026 00:08:20"
+    },
+    {
+        "id": 5,
+        "nombre": "Switch TP-Link 24 Puertos Gigabit Rackeable",
+        "asignado_a": "Departamento de Sistemas",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_ultimo_mant": "01/07/2026",
+        "desc_mant": "Mantenimiento preventivo de puertos y soplado de polvo",
+        "perifericos": {},
+        "motivo_baja": "kihbrsavd",
+        "fecha_baja": "09/10/2026 00:08:26"
+    },
+    {
+        "id": 8,
+        "nombre": "Video Proyector Epson PowerLite E20 3400 Lumens",
+        "asignado_a": "Coordinación de Docencia",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_ultimo_mant": "20/08/2026",
+        "desc_mant": "Limpieza de filtros de aire y óptica",
+        "perifericos": {},
+        "motivo_baja": "oi4BEWUGFC`2º043",
+        "fecha_baja": "09/10/2026 00:08:32"
+    },
+    {
+        "id": 11,
+        "nombre": "Router MikroTik RB750Gr3 Gigabit RouterBOARD",
+        "asignado_a": "Departamento de Sistemas",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_ultimo_mant": "05/05/2026",
+        "desc_mant": "Respaldo de reglas de firewall y RouterOS",
+        "perifericos": {},
+        "motivo_baja": "R3WF",
+        "fecha_baja": "09/10/2026 00:08:40"
+    },
+    {
+        "id": 6,
+        "nombre": "UPS CDP 1000VA / 500W Interactivo",
+        "asignado_a": "Servicios Generales",
+        "mantenimiento": "Sí (Correctivo)",
+        "fecha_ultimo_mant": "12/04/2026",
+        "desc_mant": "Cambio de batería interna por agotamiento",
+        "perifericos": {},
+        "motivo_baja": "JEFWIJFE",
+        "fecha_baja": "09/10/2026 00:08:46"
+    },
+    {
+        "id": 7,
+        "nombre": "Laptop Lenovo ThinkPad E14 Ryzen 5 16GB SSD 256GB",
+        "asignado_a": "Planificación y Presupuesto",
+        "mantenimiento": "No",
+        "fecha_ultimo_mant": "N/A",
+        "desc_mant": "Equipo asignado en óptimas condiciones",
+        "perifericos": {},
+        "motivo_baja": "LKJVCSN",
+        "fecha_baja": "09/10/2026 00:08:54"
+    },
+    {
+        "id": 9,
+        "nombre": "Servidor Dell PowerEdge R440 Xeon 32GB RAM",
+        "asignado_a": "Departamento de Sistemas",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_ultimo_mant": "15/09/2026",
+        "desc_mant": "Actualización de firmware y verificación de arreglos RAID",
+        "perifericos": {},
+        "motivo_baja": "OQEJRNVGB",
+        "fecha_baja": "09/10/2026 00:09:05"
+    },
+    {
+        "id": 10,
+        "nombre": "Escáner Fujitsu ScanSnap iX1600 Dúplex",
+        "asignado_a": "Control de Estudios",
+        "mantenimiento": "No",
+        "fecha_ultimo_mant": "N/A",
+        "desc_mant": "Uso continuo diario",
+        "perifericos": {},
+        "motivo_baja": "QEGQCRO",
+        "fecha_baja": "09/10/2026 00:09:11"
+    },
+    {
+        "id": 12,
+        "nombre": "Impresora Multifuncional Epson EcoTank L3250",
+        "asignado_a": "Recursos Humanos",
+        "mantenimiento": "Sí (Correctivo)",
+        "fecha_ultimo_mant": "18/06/2026",
+        "desc_mant": "Purgado de inyectores y almohadillas de tinta",
+        "perifericos": {},
+        "motivo_baja": "RIJECCKF",
+        "fecha_baja": "09/10/2026 00:09:20"
+    },
+    {
+        "id": 13,
+        "nombre": "Monitor Gamer MSI PRO MP243 1080p 75Hz",
+        "asignado_a": "Comunicaciones y Prensa",
+        "mantenimiento": "No",
+        "fecha_ultimo_mant": "N/A",
+        "desc_mant": "Sin observaciones",
+        "perifericos": {},
+        "motivo_baja": "OGRGVJLKJGVSLK",
+        "fecha_baja": "09/10/2026 00:09:26"
+    },
+    {
+        "id": 14,
+        "nombre": "Teclado y Mouse Inalámbrico Logitech MK270",
+        "asignado_a": "Secretaría Ejecutiva",
+        "mantenimiento": "No",
+        "fecha_ultimo_mant": "N/A",
+        "desc_mant": "En servicio activo",
+        "perifericos": {},
+        "motivo_baja": "KLAW",
+        "fecha_baja": "09/10/2026 00:09:32"
+    },
+    {
+        "id": 15,
+        "nombre": "Disco Duro Externo Adata HD710 Pro 2TB Anti-golpes",
+        "asignado_a": "Coordinación de Sistemas",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_ultimo_mant": "02/09/2026",
+        "desc_mant": "Análisis S.M.A.R.T. y verificación de sectores",
+        "perifericos": {},
+        "motivo_baja": "KOJFCSJKVXC",
+        "fecha_baja": "09/10/2026 00:09:39"
+    },
+    {
+        "id": 16,
+        "nombre": "Computadora Hp",
+        "asignado_a": "Rectorado",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_ultimo_mant": "11/11/2026",
+        "desc_mant": "",
+        "perifericos": {},
+        "motivo_baja": "FAWJUVGKN",
+        "fecha_baja": "09/10/2026 00:09:59"
+    },
+    {
+        "id": 17,
+        "nombre": "computadora de escritorio",
+        "asignado_a": "Departamento de Sistemas",
+        "mantenimiento": "Sí (Correctivo)",
+        "fecha_ultimo_mant": "11/12/2026",
+        "desc_mant": "Computadora modelo hp 7320",
+        "perifericos": {
+            "monitor": {
+                "estado": "Operativo",
+                "detalle": "Funciona"
+            },
+            "teclado": {
+                "estado": "Dañado",
+                "detalle": "Presenta fallas en algunas teclas numericas"
+            },
+            "mouse": {
+                "estado": "Operativo",
+                "detalle": "Sin problemas"
+            },
+            "cpu": {
+                "estado": "Operativo",
+                "detalle": "Funcionando"
+            }
+        },
+        "motivo_baja": "UIR",
+        "fecha_baja": "09/10/2026 00:10:29"
+    },
+    {
+        "id": 18,
+        "nombre": "laptop Mac pro",
+        "asignado_a": "Administración",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_ultimo_mant": "08/10/2026",
+        "desc_mant": "Laptpo Mac pro de 512GB",
+        "perifericos": {
+            "monitor": {
+                "estado": "Dañado",
+                "detalle": "La pantalla parpadea despues de 1 hora de uso"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "funcional"
+            },
+            "mouse": {
+                "estado": "Operativo",
+                "detalle": "funcional"
+            },
+            "cpu": {
+                "estado": "Dañado",
+                "detalle": "Puerto usb dañado del lado derecho"
+            }
+        },
+        "motivo_baja": "PLOKJJHGF",
+        "fecha_baja": "09/10/2026 00:10:43"
+    }
+]

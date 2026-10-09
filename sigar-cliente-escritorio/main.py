@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+SIGAR (UNELLEZ) - Sistema de Inventario Local y Gestión de Activos
+Módulo Principal de Interfaz Gráfica Tkinter con soporte para Activos Compuestos y Periféricos.
+Compatible con Python 3.8.10+
+"""
 import os
 import sys
 from datetime import datetime, date
@@ -26,7 +31,7 @@ from database import (
     exportar_respaldo_nube_bd
 )
 
-# Definición dinámica de imágenes
+# Definición dinámica de imágenes institucionales
 ARCHIVO_LOGO = os.path.join(DIR_ACTUAL, "UNELLEZ LOGO.png")
 PATH_LEMA = os.path.join(DIR_ACTUAL, "lema_unellez_oro.png")
 
@@ -35,14 +40,14 @@ class InventarioBienesApp:
     def __init__(self, root):
         self.root = root
         self.root.title("SIGAR (UNELLEZ) - Sistema de Inventario Local y Gestión de Activos")
-        self.root.geometry("1024x720")
-        self.root.minsize(800, 550)
+        self.root.geometry("1060x720")
+        self.root.minsize(820, 560)
 
         self.modo_actual = cargar_preferencia_tema()
         self.modo_oscuro = (self.modo_actual == "oscuro")
         self.filtro_metrica_activa = "TODOS"
         
-        # Estados para el subformulario dinámico de periféricos
+        # Estados para el subformulario dinámico de componentes y periféricos
         self.subform_desplegado = False
         self.subform_manual_toggle = False
 
@@ -69,6 +74,7 @@ class InventarioBienesApp:
         self.tarjetas_widgets = []
         self.labels_texto = []
         self.entries_widgets = []
+        self.frames_form_internos = []
 
         # Construcción GUI
         self.crear_cintillo_institucional()
@@ -79,10 +85,10 @@ class InventarioBienesApp:
         self.crear_menu_contextual()
         self.crear_panel_acciones()
         
-        # Aplicar tema
+        # Aplicar tema visual inicial
         self.aplicar_tema_widgets()
 
-        # Cargar datos
+        # Cargar datos locales iniciales
         self.bienes = cargar_datos_locales()
         self.actualizar_tabla()
         self.actualizar_metricas()
@@ -221,10 +227,24 @@ class InventarioBienesApp:
             self.frame_subform_container.config(
                 bg=bg_panel_modo, highlightbackground=pal["border_panel"]
             )
+            if hasattr(self, 'frame_sub_header'):
+                self.frame_sub_header.config(bg=bg_panel_modo)
             if hasattr(self, 'lbl_titulo_sub'):
-                self.lbl_titulo_sub.config(bg=bg_panel_modo, fg=fg_texto_modo)
+                self.lbl_titulo_sub.config(bg=bg_panel_modo, fg="#38bdf8" if self.modo_oscuro else "#0284c7")
+            if hasattr(self, 'lbl_sub_hint'):
+                self.lbl_sub_hint.config(bg=bg_panel_modo, fg=pal["fg_subtexto"])
             if hasattr(self, 'grid_perif'):
                 self.grid_perif.config(bg=bg_panel_modo)
+
+        if hasattr(self, 'perifericos_widgets'):
+            sub_card_bg = "#15203b" if self.modo_oscuro else "#f8fafc"
+            for clave, p_data in self.perifericos_widgets.items():
+                p_data["card"].config(
+                    bg=sub_card_bg, fg="#38bdf8" if self.modo_oscuro else "#0369a1",
+                    highlightbackground=pal["border_panel"]
+                )
+                p_data["lbl_estado"].config(bg=sub_card_bg, fg=fg_texto_modo)
+                p_data["lbl_detalle"].config(bg=sub_card_bg, fg=fg_texto_modo)
 
         for lbl in getattr(self, 'labels_texto', []):
             try:
@@ -429,35 +449,6 @@ class InventarioBienesApp:
         self.lbl_val_correctivos.config(text=str(correctivos))
         self.lbl_val_desincorporados.config(text=str(desincorporados))
 
-    def cargar_perifericos_en_formulario(self, bien):
-        """Visualiza y carga los datos de periféricos del bien seleccionado en el subformulario."""
-        perifs = bien.get("perifericos", {})
-        
-        if perifs:
-            self.mostrar_subformulario_perifericos()
-            self.subform_manual_toggle = True
-            for clave, p_data in perifs.items():
-                if clave in self.perifericos_widgets:
-                    self.perifericos_widgets[clave]["estado"].set(p_data.get("estado", "Operativo"))
-                    self.perifericos_widgets[clave]["observacion"].delete(0, tk.END)
-                    self.perifericos_widgets[clave]["observacion"].insert(0, p_data.get("detalle", ""))
-        else:
-            self.ocultar_subformulario_perifericos()
-            self.subform_manual_toggle = False
-    
-    def obtener_datos_perifericos_actualizados(self):
-        """Extrae el estado y las observaciones modificadas de los periféricos."""
-        perifs_dict = {}
-        if hasattr(self, 'perifericos_widgets') and self.subform_desplegado:
-            for clave, widgets in self.perifericos_widgets.items():
-                perifs_dict[clave] = {
-                    "estado": widgets["estado"].get(),
-                    "detalle": widgets["observacion"].get().strip()
-                }
-        return perifs_dict
-    
-
-
     # --- FORMULARIO & SUBFORMULARIO DE PERIFÉRICOS ---
     def crear_formulario(self):
         self.frame_form = tk.LabelFrame(
@@ -496,7 +487,7 @@ class InventarioBienesApp:
         # Botón para alternar la Ficha de Periféricos manualmente
         self.btn_toggle_perifericos = tk.Button(
             frame_btn_form, text="⚙️ Ficha Periféricos", font=("Segoe UI", 8, "bold"),
-            command=self.toggle_manual_perifericos, bd=0, padx=8, pady=2, cursor="hand2"
+            bg="#334155", fg="#ffffff", command=self.toggle_manual_perifericos, bd=0, padx=8, pady=2, cursor="hand2"
         )
         self.btn_toggle_perifericos.pack(fill="x", pady=2)
 
@@ -507,7 +498,7 @@ class InventarioBienesApp:
         self.entry_nombre = tk.Entry(self.frame_form, font=("Segoe UI", 9), relief="solid", bd=1)
         self.entry_nombre.grid(row=1, column=1, columnspan=5, padx=5, pady=3, sticky="ew")
         self.entry_nombre.bind("<KeyRelease>", self.al_cambiar_texto_nombre)
-        
+
         lbl4 = tk.Label(self.frame_form, text="¿Mantenimiento?:", font=("Segoe UI", 8, "bold"))
         lbl4.grid(row=2, column=0, padx=(10, 5), pady=3, sticky="e")
         self.combo_mant = ttk.Combobox(self.frame_form, values=["No", "Sí (Preventivo)", "Sí (Correctivo)"], font=("Segoe UI", 9), width=15, state="readonly")
@@ -534,49 +525,84 @@ class InventarioBienesApp:
         self.labels_texto.extend([lbl1, lbl2, lbl3, lbl4, lbl5, lbl6, lbl7])
         self.entries_widgets.extend([self.entry_id, self.entry_nombre, self.entry_fecha_mant, self.entry_desc_mant])
 
-        # Construir subformulario oculto por defecto
+        # Construir subformulario expandible para periféricos
         self.construir_subformulario_perifericos()
 
     def construir_subformulario_perifericos(self):
+        """Construye el contenedor expandible para detallar componentes de activos compuestos."""
         self.frame_subform_container = tk.Frame(self.frame_form, bd=0, highlightthickness=1)
         self.frame_subform_container.grid(row=4, column=0, columnspan=7, sticky="ew", padx=8, pady=(4, 6))
         self.frame_subform_container.grid_forget()
 
-        self.lbl_titulo_sub = tk.Label(self.frame_subform_container, text="Ficha Técnica de Periféricos e Integridad de Equipos de Computación", font=("Segoe UI", 8, "bold"))
-        self.lbl_titulo_sub.pack(anchor="w", padx=8, pady=(4, 2))
+        # Barra de encabezado del subformulario
+        self.frame_sub_header = tk.Frame(self.frame_subform_container)
+        self.frame_sub_header.pack(fill="x", padx=8, pady=(4, 2))
+
+        self.lbl_titulo_sub = tk.Label(
+            self.frame_sub_header, 
+            text="🖥️ Ficha Técnica de Periféricos e Integridad de Equipos de Computación", 
+            font=("Segoe UI", 8, "bold")
+        )
+        self.lbl_titulo_sub.pack(side="left")
+
+        self.lbl_sub_hint = tk.Label(
+            self.frame_sub_header,
+            text="(Activo Compuesto detectado — Ingrese el estado de cada componente)",
+            font=("Segoe UI", 7)
+        )
+        self.lbl_sub_hint.pack(side="left", padx=(6, 0))
+
+        # Botón de preset rápido
+        btn_preset_ok = tk.Button(
+            self.frame_sub_header, text="⚡ Todos Operativos", font=("Segoe UI", 7, "bold"),
+            bg="#0284c7", fg="white", bd=0, padx=6, pady=1, cursor="hand2", command=self.aplicar_preset_operativo
+        )
+        btn_preset_ok.pack(side="right", padx=(0, 4))
 
         self.perifericos_widgets = {}
         elementos = [
-            ("Monitor", "monitor"),
-            ("Teclado", "teclado"),
-            ("Mouse", "mouse"),
-            ("CPU / Internos", "cpu")
+            ("Monitor / Pantalla", "monitor", ["Operativo", "Parpadeos intermitentes", "Rayones visibles", "Líneas en pantalla", "Inoperativo", "N/A"]),
+            ("Teclado", "teclado", ["Operativo", "Falla teclas específicas", "Teclas trabadas / duras", "Inoperativo", "N/A"]),
+            ("Mouse", "mouse", ["Operativo", "Falla de clic", "Problema sensor / scroll", "Inoperativo", "N/A"]),
+            ("Componentes / CPU", "cpu", ["Operativo", "Mantenimiento requerido", "Sobrecalentamiento / Ruido", "Falla RAM / Disco", "No enciende", "N/A"])
         ]
 
         self.grid_perif = tk.Frame(self.frame_subform_container)
-        self.grid_perif.pack(fill="x", padx=8, pady=2)
+        self.grid_perif.pack(fill="x", padx=8, pady=(2, 6))
 
-        for idx, (label_txt, clave) in enumerate(elementos):
+        for idx, (label_txt, clave, opciones_estado) in enumerate(elementos):
             self.grid_perif.columnconfigure(idx, weight=1)
             
-            card = tk.LabelFrame(self.grid_perif, text=f" {label_txt} ", font=("Segoe UI", 8, "bold"), bd=1, relief="solid", padx=4, pady=4)
-            card.grid(row=0, column=idx, sticky="nsew", padx=2, pady=2)
+            card = tk.LabelFrame(self.grid_perif, text=f" {label_txt} ", font=("Segoe UI", 8, "bold"), bd=1, relief="solid", padx=5, pady=4)
+            card.grid(row=0, column=idx, sticky="nsew", padx=3, pady=2)
 
-            tk.Label(card, text="Estado:", font=("Segoe UI", 7)).pack(anchor="w")
-            combo_est = ttk.Combobox(card, values=["Operativo", "Dañado", "Ausente", "N/A"], font=("Segoe UI", 8), state="readonly")
+            lbl_est = tk.Label(card, text="Estado:", font=("Segoe UI", 7))
+            lbl_est.pack(anchor="w")
+            combo_est = ttk.Combobox(card, values=opciones_estado, font=("Segoe UI", 8), state="readonly")
             combo_est.current(0)
             combo_est.pack(fill="x", pady=(0, 2))
 
-            tk.Label(card, text="Observación:", font=("Segoe UI", 7)).pack(anchor="w")
+            lbl_obs = tk.Label(card, text="Detalle / Observación:", font=("Segoe UI", 7))
+            lbl_obs.pack(anchor="w")
             entry_obs = tk.Entry(card, font=("Segoe UI", 8), relief="solid", bd=1)
             entry_obs.pack(fill="x")
             self.entries_widgets.append(entry_obs)
 
             self.perifericos_widgets[clave] = {
                 "card": card,
+                "lbl_estado": lbl_est,
+                "lbl_detalle": lbl_obs,
                 "estado": combo_est,
                 "observacion": entry_obs
             }
+
+    def aplicar_preset_operativo(self):
+        """Rellena rápidamente los campos con estado 100% operativo."""
+        if hasattr(self, 'perifericos_widgets'):
+            for p_data in self.perifericos_widgets.values():
+                p_data["estado"].set("Operativo")
+                p_data["observacion"].delete(0, tk.END)
+                p_data["observacion"].insert(0, "En buen estado operativo")
 
     def toggle_manual_perifericos(self):
         self.subform_manual_toggle = True
@@ -604,7 +630,11 @@ class InventarioBienesApp:
     def ocultar_subformulario_perifericos(self):
         self.frame_subform_container.grid_forget()
         self.subform_desplegado = False
-        self.btn_toggle_perifericos.config(text="⚙️ Ficha Periféricos")
+        self.btn_toggle_perifericos.config(
+            text="⚙️ Ficha Periféricos",
+            bg="#334155" if self.modo_oscuro else "#475569",
+            fg="#ffffff"
+        )
 
     def tiene_datos_en_perifericos(self):
         if not hasattr(self, 'perifericos_widgets'):
@@ -613,6 +643,32 @@ class InventarioBienesApp:
             if p_data["estado"].get() not in ["Operativo", "N/A"] or p_data["observacion"].get().strip():
                 return True
         return False
+
+    def obtener_datos_perifericos_actualizados(self):
+        """Extrae el estado y las observaciones modificadas de los periféricos."""
+        perifs_dict = {}
+        if hasattr(self, 'perifericos_widgets') and self.subform_desplegado:
+            for clave, widgets in self.perifericos_widgets.items():
+                perifs_dict[clave] = {
+                    "estado": widgets["estado"].get(),
+                    "detalle": widgets["observacion"].get().strip()
+                }
+        return perifs_dict
+
+    def cargar_perifericos_en_formulario(self, bien):
+        """Visualiza y carga los datos de periféricos del bien seleccionado en el subformulario."""
+        perifs = bien.get("perifericos", {})
+        if perifs:
+            self.mostrar_subformulario_perifericos()
+            self.subform_manual_toggle = True
+            for clave, p_data in perifs.items():
+                if clave in self.perifericos_widgets:
+                    self.perifericos_widgets[clave]["estado"].set(p_data.get("estado", "Operativo"))
+                    self.perifericos_widgets[clave]["observacion"].delete(0, tk.END)
+                    self.perifericos_widgets[clave]["observacion"].insert(0, p_data.get("detalle", ""))
+        else:
+            self.ocultar_subformulario_perifericos()
+            self.subform_manual_toggle = False
 
     # --- BÚSQUEDA ---
     def crear_panel_busqueda(self):
@@ -668,6 +724,7 @@ class InventarioBienesApp:
     def crear_menu_contextual(self):
         self.menu_contextual = tk.Menu(self.root, tearoff=0, font=("Segoe UI", 9))
         self.menu_contextual.add_command(label="✏️ Editar Activo", command=self.cargar_seleccion_para_editar)
+        self.menu_contextual.add_command(label="🖥️ Ver Ficha de Periféricos", command=self.ver_ficha_perifericos_popup)
         self.menu_contextual.add_separator()
         self.menu_contextual.add_command(
             label="❌ Dar de Baja / Generar Acta PDF",
@@ -681,6 +738,122 @@ class InventarioBienesApp:
             self.tabla.selection_set(item)
             self.tabla.focus(item)
             self.menu_contextual.post(event.x_root, event.y_root)
+
+    #----- Ventana emergente para Ficha Tecnica ---------
+    def ver_ficha_perifericos_popup(self):
+        seleccion = self.tabla.selection()
+        if not seleccion:
+            messagebox.showwarning("Sin Selección", "Por favor, seleccione un activo de la tabla.", parent=self.root)
+            return
+            
+        item = self.tabla.item(seleccion[0])
+        id_bien = int(item["values"][0])
+        
+        bien = next((b for b in self.bienes if b["id"] == id_bien), None)
+        if not bien:
+            return
+
+        perifs = bien.get("perifericos", {})
+        
+        t = "oscuro" if self.modo_oscuro else "claro"
+        pal = self.PALETA[t]
+
+        modal = tk.Toplevel(self.root)
+        modal.title(f"Ficha de Periféricos - Activo ID: {id_bien}")
+        modal.geometry("450x460")
+        modal.resizable(False, False)
+        modal.configure(bg=pal["bg_root"])
+        modal.transient(self.root)
+        modal.grab_set()
+
+        # Centrar ventana
+        modal.update_idletasks()
+        w = modal.winfo_width()
+        h = modal.winfo_height()
+        x = (modal.winfo_screenwidth() // 2) - (w // 2)
+        y = (modal.winfo_screenheight() // 2) - (h // 2)
+        modal.geometry(f"{w}x{h}+{x}+{y}")
+
+        # Cabecera con márgenes mejorados
+        tk.Label(
+            modal, text="🖥️  Ficha Técnica de Periféricos", 
+            font=("Segoe UI", 11, "bold"), fg=pal["fg_texto"], bg=pal["bg_root"]
+        ).pack(pady=(15, 2))
+        
+        tk.Label(
+            modal, text=f"Equipo: {bien.get('nombre', 'N/A')}", 
+            font=("Segoe UI", 9, "bold"), fg=pal["fg_subtexto"], bg=pal["bg_root"]
+        ).pack(pady=(0, 12))
+
+        # Contenedor principal de detalles
+        frame_detalles = tk.Frame(modal, bg=pal["bg_panel"], bd=1, relief="solid")
+        frame_detalles.pack(fill="both", expand=True, padx=20, pady=(0, 15))
+
+        if not perifs:
+            tk.Label(
+                frame_detalles, text="Este activo no registra periféricos asociados.", 
+                font=("Segoe UI", 9), fg=pal["fg_subtexto"], bg=pal["bg_panel"]
+            ).pack(expand=True, pady=20)
+        else:
+            nombres_perif = {"monitor": "Monitor", "teclado": "Teclado", "mouse": "Mouse", "cpu": "CPU / Internos"}
+            
+            for clave, nombre_legible in nombres_perif.items():
+                p_data = perifs.get(clave, {})
+                estado = p_data.get("estado", "Operativo")
+                detalle = p_data.get("detalle", "").strip()
+
+                # Definir colores y símbolos según el estado
+                if estado == "Operativo":
+                    simbolo, color_estado = "🟢", "#16a34a" if not self.modo_oscuro else "#4ade80"
+                elif estado == "Dañado":
+                    simbolo, color_estado = "🔴", "#dc2626" if not self.modo_oscuro else "#f87171"
+                elif estado == "Ausente":
+                    simbolo, color_estado = "🟡", "#ca8a04" if not self.modo_oscuro else "#facc15"
+                else:
+                    simbolo, color_estado = "⚪", pal["fg_subtexto"]
+
+                # Tarjeta individual para cada periférico
+                item_frame = tk.Frame(frame_detalles, bg=pal["bg_panel"], bd=1, relief="flat")
+                item_frame.pack(fill="x", padx=12, pady=6)
+
+                # Línea superior: Nombre y Estado con símbolo y color
+                header_row = tk.Frame(item_frame, bg=pal["bg_panel"])
+                header_row.pack(fill="x", anchor="w")
+
+                tk.Label(
+                    header_row, text=f"• {nombre_legible}:", 
+                    font=("Segoe UI", 9, "bold"), fg=pal["fg_texto"], bg=pal["bg_panel"], anchor="w"
+                ).pack(side="left")
+
+                tk.Label(
+                    header_row, text=f" {simbolo} {estado}", 
+                    font=("Segoe UI", 9, "bold"), fg=color_estado, bg=pal["bg_panel"], anchor="w"
+                ).pack(side="left", padx=8)
+
+                # Línea inferior: Observación técnica ubicada debajo del diagnóstico
+                if detalle:
+                    obs_frame = tk.Frame(item_frame, bg=pal["bg_panel"])
+                    obs_frame.pack(fill="x", anchor="w", padx=10, pady=(4, 2))
+                    
+                    # Línea 1: Título de la sección
+                    tk.Label(
+                        obs_frame, text="Observaciones Técnicas:", 
+                        font=("Segoe UI", 8, "bold"), fg=pal["fg_texto"], bg=pal["bg_panel"], anchor="w"
+                    ).pack(fill="x", anchor="w")
+                    
+                    # Línea 2: Texto de la descripción con fuente Consolas y wraplength para evitar cortes
+                    tk.Label(
+                        obs_frame, text=detalle, 
+                        font=("Segoe UI", 11), fg=pal["fg_texto"], bg=pal["bg_panel"], 
+                        anchor="w", justify="left", wraplength=380
+                    ).pack(fill="x", anchor="w", pady=(2, 0))
+
+        # Botón de cierre
+        tk.Button(
+            modal, text="Cerrar", bg="#002B49", fg="white", 
+            font=("Segoe UI", 9, "bold"), bd=0, padx=20, pady=6, cursor="hand2",
+            command=modal.destroy
+        ).pack(pady=(0, 15))
 
     # --- ACCIONES / PANEL INFERIOR ---
     def crear_panel_acciones(self):
@@ -778,16 +951,12 @@ class InventarioBienesApp:
             messagebox.showwarning("ID Duplicado", f"El activo con ID {id_int} ya existe en el sistema.")
             return
 
-        perifs_dict = {}
-        if hasattr(self, 'perifericos_widgets') and self.subform_desplegado:
-            for clave, widgets in self.perifericos_widgets.items():
-                perifs_dict[clave] = {
-                    "estado": widgets["estado"].get(),
-                    "detalle": widgets["observacion"].get().strip()
-                }
+        perifs_dict = self.obtener_datos_perifericos_actualizados()
             
         nuevo_bien = {
-            "id": id_int, "nombre": nombre_val, "asignado_a": asignado_val,
+            "id": id_int, 
+            "nombre": nombre_val, 
+            "asignado_a": asignado_val,
             "mantenimiento": mant_val,
             "fecha_mant": fecha_mant_val if mant_val != "No" else "N/A",
             "proximo_mant": proximo_val if mant_val != "No" else "N/A",
@@ -825,9 +994,14 @@ class InventarioBienesApp:
             messagebox.showwarning("Campos Incompletos", "Por favor, complete la Descripción/Nombre y 'Asignado a'.")
             return
 
+        index = next((i for i, b in enumerate(self.bienes) if b["id"] == id_int), None)
+        if index is None:
+            messagebox.showerror("No Encontrado", f"No se encontró ningún activo con el ID {id_int}.")
+            return
+
         perifs_dict = self.obtener_datos_perifericos_actualizados()
 
-        Bien_actualizado = {
+        self.bienes[index] = {
             "id": id_int,
             "nombre": nombre_val,
             "asignado_a": asignado_val,
@@ -837,20 +1011,6 @@ class InventarioBienesApp:
             "desc_mant": desc_mant_val if mant_val != "No" else "",
             "perifericos": perifs_dict if self.subform_desplegado else {}
         }
-
-        index = next((i for i, b in enumerate(self.bienes) if b["id"] == id_int), None)
-        if index is None:
-            messagebox.showerror("No Encontrado", f"No se encontró ningún activo con el ID {id_int}.")
-            return
-
-        perifs_dict = {}
-        if hasattr(self, 'perifericos_widgets') and self.subform_desplegado:
-            for clave, widgets in self.perifericos_widgets.items():
-                perifs_dict[clave] = {
-                    "estado": widgets["estado"].get(),
-                    "detalle": widgets["observacion"].get().strip()
-                }
-            
         
         if guardar_datos_locales(self.bienes):
             self.actualizar_tabla()
@@ -885,13 +1045,15 @@ class InventarioBienesApp:
             fecha_hora_baja = datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             
             registro_baja = {
-                "id": id_bien, "nombre": nombre_bien,
+                "id": id_bien, 
+                "nombre": nombre_bien,
                 "asignado_a": bien_objetivo.get("asignado_a", "N/A") if bien_objetivo else "N/A",
                 "mantenimiento": bien_objetivo.get("mantenimiento", "N/A") if bien_objetivo else "N/A",
                 "fecha_ultimo_mant": bien_objetivo.get("fecha_mant", "N/A") if bien_objetivo else "N/A",
                 "desc_mant": bien_objetivo.get("desc_mant", "") if bien_objetivo else "",
                 "perifericos": bien_objetivo.get("perifericos", {}) if bien_objetivo else {},
-                "motivo_baja": motivo.strip(), "fecha_baja": fecha_hora_baja
+                "motivo_baja": motivo.strip(), 
+                "fecha_baja": fecha_hora_baja
             }
             
             self.bienes = [b for b in self.bienes if b["id"] != id_bien]
@@ -968,18 +1130,8 @@ class InventarioBienesApp:
             self.entry_desc_mant.insert(0, bien.get("desc_mant", ""))
             self.calcular_proxima_fecha_mantenimiento()
 
-            perifs = bien.get("perifericos", {})
-            if perifs:
-                self.mostrar_subformulario_perifericos()
-                self.subform_manual_toggle = True
-                for clave, p_data in perifs.items():
-                    if clave in self.perifericos_widgets:
-                        self.perifericos_widgets[clave]["estado"].set(p_data.get("estado", "Operativo"))
-                        self.perifericos_widgets[clave]["observacion"].delete(0, tk.END)
-                        self.perifericos_widgets[clave]["observacion"].insert(0, p_data.get("detalle", ""))
-            else:
-                self.ocultar_subformulario_perifericos()
-                self.subform_manual_toggle = False
+            # Carga automática de los periféricos asociados al activo
+            self.cargar_perifericos_en_formulario(bien)
 
             self.entry_nombre.focus_force()
 

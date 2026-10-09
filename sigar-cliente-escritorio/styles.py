@@ -1,4 +1,9 @@
 # -*- coding: utf-8 -*-
+"""
+SIGAR (UNELLEZ) - styles.py
+Definiciones de fuentes, paletas de colores y temas para la interfaz gráfica Tkinter.
+Compatible con Python 3.8.10+
+"""
 import os
 import json
 
@@ -8,7 +13,7 @@ ARCHIVO_CONFIG_TEMA = "config_app.json"
 # Tipografías estándar del sistema SIGAR
 FONT_LABEL = ("Segoe UI", 9)
 FONT_BOLD = ("Segoe UI", 9, "bold")
-FONT_KPI_VAL = ("Segoe UI", 16, "bold")
+FONT_KPI_VAL = ("Segoe UI", 18, "bold")
 FONT_KPI_TIT = ("Segoe UI", 8, "bold")
 
 # Paleta de colores integral para Modo Claro y Modo Oscuro
@@ -24,8 +29,8 @@ PALETA = {
         "entry_border": "#94a3b8",
         "tree_bg": "#ffffff",
         "tree_fg": "#1e293b",
-        "tree_head_bg": "#e2e8f0",
-        "tree_head_fg": "#0f172a",
+        "tree_head_bg": "#002B49",
+        "tree_head_fg": "#ffffff",
         "kpis": [
             {
                 "bg": "#f0fdf4", "active_bg": "#dcfce7", "border": "#86efac", "active_border": "#22c55e",
@@ -55,13 +60,13 @@ PALETA = {
         "fg_texto": "#f8fafc",
         "fg_subtexto": "#94a3b8",
         "border_panel": "#334155",
-        "entry_bg": "#0f172a",
+        "entry_bg": "#090d16",
         "entry_fg": "#f8fafc",
         "entry_border": "#475569",
         "tree_bg": "#1e293b",
         "tree_fg": "#f8fafc",
-        "tree_head_bg": "#334155",
-        "tree_head_fg": "#f8fafc",
+        "tree_head_bg": "#001f35",
+        "tree_head_fg": "#ffffff",
         "kpis": [
             {
                 "bg": "#064e3b", "active_bg": "#065f46", "border": "#059669", "active_border": "#34d399",
@@ -94,10 +99,10 @@ def cargar_preferencia_tema():
         try:
             with open(ARCHIVO_CONFIG_TEMA, 'r', encoding='utf-8') as f:
                 data = json.load(f)
-                return data.get("modo", "claro")
+                return data.get("modo", "oscuro")
         except Exception:
             pass
-    return "claro"
+    return "oscuro"
 
 
 def guardar_preferencia_tema(modo):
