@@ -5,7 +5,13 @@ import os
 import shutil
 import sys
 from tkinter import messagebox, simpledialog
-import requests
+
+# Importación con fallback seguro para peticiones HTTP
+try:
+    import requests
+    HAS_REQUESTS = True
+except ImportError:
+    HAS_REQUESTS = False
 
 
 def obtener_ruta_base():
@@ -45,7 +51,7 @@ def cargar_datos_locales():
 
 
 def guardar_datos_locales(bienes):
-    """Guarda los datos en el almacenamiento local en bienes.json."""
+    """Guarda la lista completa de bienes en bienes.json."""
     try:
         with open(ARCHIVO_BIENES, 'w', encoding='utf-8') as f:
             json.dump(bienes, f, ensure_ascii=False, indent=4)
@@ -73,6 +79,11 @@ def cargar_historial_bajas():
         return []
 
 
+def cargar_bajas_locales():
+    """Devuelve el historial de activos desincorporados."""
+    return cargar_historial_bajas()
+
+
 def guardar_baja_local(registro_baja):
     """Guarda un nuevo registro de baja en bajas.json."""
     bajas = cargar_historial_bajas()
@@ -80,11 +91,13 @@ def guardar_baja_local(registro_baja):
     try:
         with open(ARCHIVO_BAJAS, 'w', encoding='utf-8') as f:
             json.dump(bajas, f, ensure_ascii=False, indent=4)
+        return True
     except Exception as e:
         messagebox.showerror(
             'Error en Registro de Baja',
             f'No se pudo registrar la baja en {ARCHIVO_BAJAS}:\n{e}',
         )
+        return False
 
 
 def obtener_conteo_bajas():
@@ -94,6 +107,14 @@ def obtener_conteo_bajas():
 
 def exportar_respaldo_nube_bd(parent_window=None):
     """Solicita el correo, empaqueta los bienes locales en JSON y los envía a Google Sheets."""
+    if not HAS_REQUESTS:
+        messagebox.showerror(
+            'Librería Requerida',
+            "La librería 'requests' no está instalada. Ejecute: pip install requests",
+            parent=parent_window,
+        )
+        return
+
     correo = simpledialog.askstring(
         'Correo para la Nube',
         'Ingrese el correo electrónico vinculado para el respaldo:',
@@ -138,10 +159,10 @@ def exportar_respaldo_nube_bd(parent_window=None):
                 parent=parent_window,
             )
 
-    except requests.exceptions.RequestException as e:
+    except Exception as e:
         messagebox.showerror(
             'Error de Conexión',
-            f'No se pudo conectar con Google Apps Script.\nVerifique su conexión a internet.\n\nDetalles: {str(e)}',
+            f'Fallo al conectar con el servidor de respaldos de Google Apps Script:\n\n{e}',
             parent=parent_window,
         )
 
@@ -150,7 +171,6 @@ def exportar_bd(ruta_destino):
     """Crea una copia de seguridad del archivo de bienes en la ruta seleccionada."""
     try:
         if not os.path.exists(ARCHIVO_BIENES):
-            # Si no existe aún el JSON, crear uno vacío para evitar errores
             guardar_datos_locales([])
         shutil.copy(ARCHIVO_BIENES, ruta_destino)
         return True, "Copia de seguridad creada con éxito."
@@ -165,11 +185,6 @@ def importar_bd(ruta_origen):
         return True, "Base de datos restaurada correctamente."
     except Exception as e:
         return False, f"Error al importar la base de datos: {e}"
-
-
-def cargar_bajas_locales():
-    """Devuelve el historial de activos desincorporados."""
-    return cargar_historial_bajas()
 
 
 def restaurar_baja_local(id_bien):

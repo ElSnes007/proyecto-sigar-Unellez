@@ -28,12 +28,50 @@
     },
     {
         "id": 4,
-        "nombre": "PC de Escritorio HP ProDesk 400 G6 i5 8GB 1TB",
+        "nombre": "Laptop",
         "asignado_a": "Administración",
         "mantenimiento": "Sí (Correctivo)",
         "fecha_mant": "29/09/2026",
         "proximo_mant": "29/12/2026",
-        "desc_mant": "Reinstalación de sistema operativo y formateo"
+        "desc_mant": "Reinstalación de sistema operativo y formateo",
+        "detalles_tecnicos": {
+            "tipo": "Laptop",
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": ""
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": ""
+            },
+            "mouse_touchpad": {
+                "estado": "Operativo",
+                "detalle": ""
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": ""
+            }
+        },
+        "perifericos": {
+            "tipo": "Laptop",
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": ""
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": ""
+            },
+            "mouse_touchpad": {
+                "estado": "Operativo",
+                "detalle": ""
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": ""
+            }
+        }
     },
     {
         "id": 5,
@@ -46,12 +84,48 @@
     },
     {
         "id": 6,
-        "nombre": "UPS CDP 1000VA / 500W Interactivo",
+        "nombre": "Laptop",
         "asignado_a": "Servicios Generales",
         "mantenimiento": "Sí (Correctivo)",
         "fecha_mant": "12/04/2026",
-        "proximo_mant": "12/07/2026",
-        "desc_mant": "Cambio de batería interna por agotamiento"
+        "proximo_mant": "13/07/2026",
+        "desc_mant": "Cambio de batería interna por agotamiento",
+        "detalles_tecnicos": {
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse_touchpad": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": "En buen estado operativo"
+            }
+        },
+        "perifericos": {
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse_touchpad": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": "En buen estado operativo"
+            }
+        }
     },
     {
         "id": 7,
@@ -64,12 +138,48 @@
     },
     {
         "id": 8,
-        "nombre": "Video Proyector Epson PowerLite E20 3400 Lumens",
+        "nombre": "Laptop",
         "asignado_a": "Coordinación de Docencia",
         "mantenimiento": "Sí (Preventivo)",
         "fecha_mant": "20/08/2026",
         "proximo_mant": "20/11/2026",
-        "desc_mant": "Limpieza de filtros de aire y óptica"
+        "desc_mant": "Limpieza de filtros de aire y óptica",
+        "detalles_tecnicos": {
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse_touchpad": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": "En buen estado operativo"
+            }
+        },
+        "perifericos": {
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse_touchpad": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": "En buen estado operativo"
+            }
+        }
     },
     {
         "id": 9,
@@ -100,12 +210,50 @@
     },
     {
         "id": 12,
-        "nombre": "Impresora Multifuncional Epson EcoTank L3250",
+        "nombre": "Laptop",
         "asignado_a": "Recursos Humanos",
         "mantenimiento": "Sí (Correctivo)",
         "fecha_mant": "18/06/2026",
         "proximo_mant": "18/09/2026",
-        "desc_mant": "Purgado de inyectores y almohadillas de tinta"
+        "desc_mant": "Purgado de inyectores y almohadillas de tinta",
+        "detalles_tecnicos": {
+            "tipo": "Laptop",
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": ""
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": ""
+            },
+            "mouse_touchpad": {
+                "estado": "Operativo",
+                "detalle": ""
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": ""
+            }
+        },
+        "perifericos": {
+            "tipo": "Laptop",
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": ""
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": ""
+            },
+            "mouse_touchpad": {
+                "estado": "Operativo",
+                "detalle": ""
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": ""
+            }
+        }
     },
     {
         "id": 13,
@@ -124,5 +272,50 @@
         "fecha_mant": "N/A",
         "proximo_mant": "N/A",
         "desc_mant": "En servicio activo"
+    },
+    {
+        "id": 15,
+        "nombre": "Computadora de escritorio",
+        "asignado_a": "Departamento de Sistemas",
+        "mantenimiento": "No",
+        "fecha_mant": "N/A",
+        "proximo_mant": "N/A",
+        "desc_mant": "",
+        "detalles_tecnicos": {
+            "monitor": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "cpu": {
+                "estado": "Operativo al 100%",
+                "detalle": "En buen estado operativo"
+            }
+        },
+        "perifericos": {
+            "monitor": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "cpu": {
+                "estado": "Operativo al 100%",
+                "detalle": "En buen estado operativo"
+            }
+        }
     }
 ]
