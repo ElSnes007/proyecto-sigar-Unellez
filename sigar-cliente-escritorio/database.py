@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-SIGAR (UNELLEZ) - database.py
-Gestión de persistencia local en JSON y sincronización con el respaldo en la nube.
-Compatible con Python 3.8.10+
-"""
 import os
 import datetime
 import json
@@ -128,6 +123,6 @@ def exportar_respaldo_nube_bd(parent_window=None):
     except Exception as e:
         messagebox.showerror(
             "Error de Conexión", 
-            f"No se pudo conectar con el servicio en la nube.\nVerifique su conexión a internet.\n\nDetalles: {str(e)}", 
+            f"Fallo al conectar con el servidor de respaldos:\n{e}", 
             parent=parent_window
         )

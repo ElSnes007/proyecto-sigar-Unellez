@@ -27,30 +27,100 @@
         }
     },
     {
-        "id": 2,
-        "nombre": "laptop Mac pro",
-        "asignado_a": "Administración",
+        "id": 3,
+        "nombre": "pc hp",
+        "asignado_a": "Rectorado",
         "mantenimiento": "Sí (Preventivo)",
-        "fecha_mant": "08/10/2026",
-        "proximo_mant": "08/01/2027",
-        "desc_mant": "Laptpo Mac pro de 512GB",
+        "fecha_mant": "09/10/2026",
+        "proximo_mant": "11/01/2027",
+        "desc_mant": "",
         "perifericos": {
             "monitor": {
-                "estado": "Dañado",
-                "detalle": "La pantalla parpadea despues de 1 hora de uso"
+                "estado": "Parpadeos intermitentes",
+                "detalle": "ocrre tra 1 oa de uso"
             },
             "teclado": {
                 "estado": "Operativo",
-                "detalle": "funcional"
+                "detalle": "fucional"
             },
             "mouse": {
-                "estado": "Operativo",
-                "detalle": "funcional"
+                "estado": "Falla de clic",
+                "detalle": "doble clip en el boto izuierdo"
             },
             "cpu": {
-                "estado": "Dañado",
-                "detalle": "Puerto usb dañado del lado derecho"
+                "estado": "Falla RAM / Disco",
+                "detalle": ""
             }
+        }
+    },
+    {
+        "id": 2,
+        "nombre": "Laptop",
+        "asignado_a": "Laboratorio 1",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_mant": "13/10/2026",
+        "proximo_mant": "13/01/2027",
+        "desc_mant": "lenovo thinpack t14s 8 de ram, 256 ssd",
+        "detalles_tecnicos": {
+            "tipo": "Laptop",
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": "sin detalles"
+            },
+            "teclado": {
+                "estado": "Falla de teclas específicas",
+                "detalle": "no marca tres teclas y espacio"
+            },
+            "mouse_touchpad": {
+                "estado": "Dañado",
+                "detalle": "no funciona"
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": "funcional"
+            }
+        },
+        "perifericos": {
+            "tipo": "Laptop",
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": "sin detalles"
+            },
+            "teclado": {
+                "estado": "Falla de teclas específicas",
+                "detalle": "no marca tres teclas y espacio"
+            },
+            "mouse_touchpad": {
+                "estado": "Dañado",
+                "detalle": "no funciona"
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": "funcional"
+            }
+        }
+    },
+    {
+        "id": 4,
+        "nombre": "Router",
+        "asignado_a": "Rectorado",
+        "mantenimiento": "Sí (Correctivo)",
+        "fecha_mant": "14/10/2026",
+        "proximo_mant": "14/01/2027",
+        "desc_mant": "router tplink modelo T6500 5g de 600 megas",
+        "detalles_tecnicos": {
+            "tipo": "Router",
+            "marca": "Tplink",
+            "modelo": "T6500 5g",
+            "estado_general": "Funcional con fallas",
+            "detalle_falla": "Enciende pero no comparte internet"
+        },
+        "perifericos": {
+            "tipo": "Router",
+            "marca": "Tplink",
+            "modelo": "T6500 5g",
+            "estado_general": "Funcional con fallas",
+            "detalle_falla": "Enciende pero no comparte internet"
         }
     }
 ]

@@ -230,5 +230,73 @@
         },
         "motivo_baja": "PLOKJJHGF",
         "fecha_baja": "09/10/2026 00:10:43"
+    },
+    {
+        "id": 2,
+        "nombre": "laptop Mac pro",
+        "asignado_a": "Administración",
+        "mantenimiento": "Sí (Preventivo)",
+        "fecha_ultimo_mant": "08/10/2026",
+        "desc_mant": "Laptpo Mac pro de 512GB",
+        "perifericos": {
+            "monitor": {
+                "estado": "Dañado",
+                "detalle": "La pantalla parpadea despues de 1 hora de uso"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "funcional"
+            },
+            "mouse": {
+                "estado": "Operativo",
+                "detalle": "funcional"
+            },
+            "cpu": {
+                "estado": "Dañado",
+                "detalle": "Puerto usb dañado del lado derecho"
+            }
+        },
+        "motivo_baja": "falla critica en la placa",
+        "fecha_baja": "09/10/2026 10:59:31"
+    },
+    {
+        "id": 2,
+        "nombre": "Impresora",
+        "asignado_a": "Rectorado",
+        "mantenimiento": "Sí (Correctivo)",
+        "fecha_ultimo_mant": "12/10/2026",
+        "desc_mant": "marca hp modelo 600",
+        "detalles_tecnicos": {
+            "tipo": "Impresora",
+            "impresion": {
+                "estado": "Atasco de papel",
+                "detalle": "al mandara imprimir se atasca"
+            },
+            "copia": {
+                "estado": "Operativa",
+                "detalle": ""
+            },
+            "scanner": {
+                "estado": "Operativa",
+                "detalle": ""
+            }
+        },
+        "perifericos": {
+            "tipo": "Impresora",
+            "impresion": {
+                "estado": "Atasco de papel",
+                "detalle": "al mandara imprimir se atasca"
+            },
+            "copia": {
+                "estado": "Operativa",
+                "detalle": ""
+            },
+            "scanner": {
+                "estado": "Operativa",
+                "detalle": ""
+            }
+        },
+        "motivo_baja": "no se conisguio la pieza de repuesto",
+        "fecha_baja": "12/10/2026 22:25:24"
     }
 ]

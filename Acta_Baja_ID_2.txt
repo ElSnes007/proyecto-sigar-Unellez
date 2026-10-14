@@ -1,0 +1,26 @@
+========================================================================
+UNELLEZ - SISTEMA DE GESTIÓN DE ACTIVOS Y RECURSOS (SIGAR)
+ACTA OFICIAL DE DESINCORPORACIÓN Y BAJA DE ACTIVO
+========================================================================
+
+Fecha de Procesamiento: 12/10/2026 22:25:24
+ID del Activo:          2
+Categoría / Tipo:       Impresora
+Asignado a:             Rectorado
+Mantenimiento:          Sí (Correctivo)
+Última Fecha Manten.:   12/10/2026
+Observación de Mant.:   marca hp modelo 600
+
+EVALUACIÓN TÉCNICA Y DIAGNÓSTICO FUNCIONAL:
+---------------------------------------------
+- Impresión Simple: [Atasco de papel] al mandara imprimir se atasca
+- Función Copia: [Operativa] 
+- Función Scanner: [Operativa] 
+
+JUSTIFICACIÓN / MOTIVO DE LA BAJA:
+---------------------------------------------
+no se conisguio la pieza de repuesto
+
+========================================================================
+Firma Responsable Área: ____________________
+Bienes Nacionales:      ____________________

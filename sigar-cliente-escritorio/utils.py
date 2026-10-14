@@ -1,9 +1,4 @@
 # -*- coding: utf-8 -*-
-"""
-SIGAR (UNELLEZ) - utils.py
-Cálculos de fechas hábiles, detección de periféricos y generación de actas de desincorporación.
-Compatible con Python 3.8.10+
-"""
 import os
 import calendar
 import unicodedata
@@ -30,27 +25,23 @@ except ImportError:
     HAS_REQUESTS = False
 
 
-# Palabras clave que indican activo informático compuesto
-PALABRAS_CLAVE_COMPUESTOS = [
-    "computadora", "computador", "pc", "escritorio", "desktop",
-    "laptop", "portatil", "portátil", "servidor", "server",
-    "all in one", "aio", "workstation", "estacion de trabajo",
-    "estación de trabajo", "ordenador", "cpu", "clon", "clone"
+# Lista oficial de los 5 tipos de activos del sistema SIGAR
+TIPOS_ACTIVOS_VALIDOS = [
+    "Seleccione el equipo",
+    "Laptop",
+    "Computadora de escritorio",
+    "Impresora",
+    "Router",
+    "Switch de red"
 ]
 
 
 def es_activo_compuesto(texto):
-    """Evalúa si la descripción o nombre corresponde a un equipo compuesto con periféricos."""
+    """Evalúa si el tipo de activo requiere subformulario técnico de diagnóstico."""
     if not texto:
         return False
-    def quitar_tildes(cadena):
-        return ''.join(c for c in unicodedata.normalize('NFD', cadena) if unicodedata.category(c) != 'Mn')
-    
-    texto_norm = quitar_tildes(str(texto).lower().strip())
-    for clave in PALABRAS_CLAVE_COMPUESTOS:
-        if quitar_tildes(clave) in texto_norm:
-            return True
-    return False
+    texto_limpio = str(texto).strip()
+    return any(tipo.lower() in texto_limpio.lower() for tipo in TIPOS_ACTIVOS_VALIDOS)
 
 
 def calcular_fecha_habil_3_meses(fecha_base):
@@ -70,9 +61,41 @@ def calcular_fecha_habil_3_meses(fecha_base):
 
 
 def generar_acta_baja(registro):
-    """Genera el acta oficial de desincorporación en formato PDF o TXT de respaldo."""
+    """Genera el acta oficial de desincorporación en formato PDF o TXT con desglose técnico híbrido."""
     nombre_base = f"Acta_Baja_ID_{registro.get('id', 'N/A')}"
+    detalles = registro.get("detalles_tecnicos") or registro.get("perifericos") or {}
+    tipo_bien = registro.get("nombre", "N/A")
     
+    # Preparar texto de detalles técnicos según el tipo de activo
+    lineas_tecnicas = []
+    if detalles and isinstance(detalles, dict):
+        if "pantalla" in detalles or "carcasa_puertos" in detalles:
+            # Laptop
+            for clave, nom in [("pantalla", "Pantalla"), ("teclado", "Teclado"), ("mouse_touchpad", "Mouse / Touchpad"), ("carcasa_puertos", "Carcasa / Puertos")]:
+                d = detalles.get(clave, {})
+                lineas_tecnicas.append(f"- {nom}: [{d.get('estado', 'N/A')}] {d.get('detalle', 'Sin observaciones')}")
+        elif "impresion" in detalles or "copia" in detalles or "scanner" in detalles:
+            # Impresora
+            for clave, nom in [("impresion", "Impresión Simple"), ("copia", "Función Copia"), ("scanner", "Función Scanner")]:
+                d = detalles.get(clave, {})
+                lineas_tecnicas.append(f"- {nom}: [{d.get('estado', 'N/A')}] {d.get('detalle', 'Sin observaciones')}")
+        elif "marca" in detalles and ("modelo" in detalles or "estado_general" in detalles):
+            # Router o Switch de red
+            marca = detalles.get("marca", "N/A")
+            modelo = detalles.get("modelo", "N/A")
+            estado = detalles.get("estado_general", "N/A")
+            falla = detalles.get("detalle_falla", "Sin anomalías reportadas")
+            lineas_tecnicas.append(f"- Marca: {marca} | Modelo: {modelo}")
+            lineas_tecnicas.append(f"- Estado General: [{estado}]")
+            if falla:
+                lineas_tecnicas.append(f"- Descripción de Falla: {falla}")
+        else:
+            # Computadora de escritorio
+            for clave, nom in [("monitor", "Monitor / Pantalla"), ("teclado", "Teclado"), ("mouse", "Mouse"), ("cpu", "CPU / Internos")]:
+                d = detalles.get(clave, {})
+                if isinstance(d, dict) and d:
+                    lineas_tecnicas.append(f"- {nom}: [{d.get('estado', 'N/A')}] {d.get('detalle', 'Sin observaciones')}")
+
     if HAS_REPORTLAB:
         archivo_pdf = f"{nombre_base}.pdf"
         c = canvas.Canvas(archivo_pdf, pagesize=letter)
@@ -89,27 +112,24 @@ def generar_acta_baja(registro):
         c.drawString(50, height - 105, f"Fecha de Procesamiento: {registro.get('fecha_baja', 'N/A')}")
         c.drawString(50, height - 120, f"Código de Activo (ID): {registro.get('id', 'N/A')}")
         
-        y = height - 150
+        y = height - 148
         c.drawString(50, y, "DETALLES DEL EQUIPO / BIEN:")
         c.setFont("Helvetica", 10)
-        c.drawString(70, y - 18, f"• Descripción / Equipo: {registro.get('nombre', 'N/A')}")
-        c.drawString(70, y - 34, f"• Asignación Previa: {registro.get('asignado_a', 'N/A')}")
-        c.drawString(70, y - 50, f"• Estado de Mantenimiento: {registro.get('mantenimiento', 'N/A')}")
-        c.drawString(70, y - 66, f"• Último Mantenimiento: {registro.get('fecha_ultimo_mant', 'N/A')}")
+        c.drawString(70, y - 16, f"• Tipo / Categoría: {registro.get('nombre', 'N/A')}")
+        c.drawString(70, y - 32, f"• Asignación Previa: {registro.get('asignado_a', 'N/A')}")
+        c.drawString(70, y - 48, f"• Estado de Mantenimiento: {registro.get('mantenimiento', 'N/A')}")
+        c.drawString(70, y - 64, f"• Último Mantenimiento: {registro.get('fecha_ultimo_mant', 'N/A')}")
         if registro.get('desc_mant'):
-            c.drawString(70, y - 82, f"• Detalle Mantenimiento: {registro.get('desc_mant')}")
+            c.drawString(70, y - 80, f"• Detalle Mantenimiento: {registro.get('desc_mant')}")
             
-        # Desglose de Periféricos si existen
-        perifs = registro.get("perifericos")
-        offset = 98
-        if perifs and isinstance(perifs, dict):
+        offset = 96
+        if lineas_tecnicas:
             c.setFont("Helvetica-Bold", 9)
-            c.drawString(70, y - offset, "• Desglose de Periféricos al momento de la baja:")
+            c.drawString(70, y - offset, "• Evaluación Técnica y Diagnóstico Funcional:")
             offset += 14
             c.setFont("Helvetica", 8)
-            for k, nom in [("monitor", "Monitor"), ("teclado", "Teclado"), ("mouse", "Mouse"), ("cpu", "CPU/Internos")]:
-                p_data = perifs.get(k, {})
-                c.drawString(85, y - offset, f"- {nom}: [{p_data.get('estado', 'N/A')}] {p_data.get('detalle', '')}")
+            for lin in lineas_tecnicas:
+                c.drawString(85, y - offset, lin)
                 offset += 12
 
         y_motivo = y - offset - 15
@@ -133,52 +153,39 @@ def generar_acta_baja(registro):
         y_firma = 120
         c.setLineWidth(0.8)
         c.line(70, y_firma, 240, y_firma)
-        c.line(330, y_firma, 500, y_firma)
-        
+        c.line(width - 240, y_firma, width - 70, y_firma)
         c.setFont("Helvetica", 9)
-        c.drawCentredString(155, y_firma - 15, "Responsable del Bien / Unidad")
-        c.drawCentredString(415, y_firma - 15, "Autorizado por (Unidad de Bienes UNELLEZ)")
+        c.drawCentredString(155, y_firma - 14, "Firma del Responsable del Área")
+        c.drawCentredString(width - 155, y_firma - 14, "Auditoría / Bienes Nacionales")
         
-        c.drawCentredString(width / 2, 35, "Documento oficial generado automáticamente por SIGAR V2.5")
         c.save()
         return archivo_pdf
     else:
         archivo_txt = f"{nombre_base}.txt"
-        perifs = registro.get("perifericos", {})
-        perifs_txt = ""
-        if perifs:
-            perifs_txt = "\nDESGLOSE DE PERIFÉRICOS:\n----------------------------------------------------------------------\n"
-            for k, nom in [("monitor", "Monitor"), ("teclado", "Teclado"), ("mouse", "Mouse"), ("cpu", "CPU/Internos")]:
-                p_data = perifs.get(k, {})
-                perifs_txt += f"- {nom}: [{p_data.get('estado', 'N/A')}] {p_data.get('detalle', '')}\n"
-
-        contenido = f"""======================================================================
-UNELLEZ - SIGAR (SISTEMA DE GESTIÓN DE ACTIVOS Y RECURSOS)
-ACTA OFICIAL DE DESINCORPORACIÓN Y BAJA DE ACTIVO
-======================================================================
-Fecha de Procesamiento: {registro.get('fecha_baja', 'N/A')}
-ID del Activo:           {registro.get('id', 'N/A')}
-
-DETALLES DEL EQUIPO:
-----------------------------------------------------------------------
-Nombre / Descripción:    {registro.get('nombre', 'N/A')}
-Asignación Anterior:     {registro.get('asignado_a', 'N/A')}
-Mantenimiento:           {registro.get('mantenimiento', 'N/A')}
-Último Mantenimiento:    {registro.get('fecha_ultimo_mant', 'N/A')}
-Detalle Mantenimiento:   {registro.get('desc_mant', '')}
-{perifs_txt}
-JUSTIFICACIÓN / MOTIVO DE LA BAJA:
-----------------------------------------------------------------------
-{registro.get('motivo_baja', '')}
-
-======================================================================
-FIRMAS AUTORIZADAS:
-
-
-__________________________              __________________________
-Responsable del Equipo                  Unidad de Bienes UNELLEZ
-======================================================================
-"""
-        with open(archivo_txt, 'w', encoding='utf-8') as f:
-            f.write(contenido)
+        with open(archivo_txt, "w", encoding="utf-8") as f:
+            f.write("=" * 72 + "\n")
+            f.write("UNELLEZ - SISTEMA DE GESTIÓN DE ACTIVOS Y RECURSOS (SIGAR)\n")
+            f.write("ACTA OFICIAL DE DESINCORPORACIÓN Y BAJA DE ACTIVO\n")
+            f.write("=" * 72 + "\n\n")
+            f.write(f"Fecha de Procesamiento: {registro.get('fecha_baja', 'N/A')}\n")
+            f.write(f"ID del Activo:          {registro.get('id', 'N/A')}\n")
+            f.write(f"Categoría / Tipo:       {registro.get('nombre', 'N/A')}\n")
+            f.write(f"Asignado a:             {registro.get('asignado_a', 'N/A')}\n")
+            f.write(f"Mantenimiento:          {registro.get('mantenimiento', 'N/A')}\n")
+            f.write(f"Última Fecha Manten.:   {registro.get('fecha_ultimo_mant', 'N/A')}\n")
+            f.write(f"Observación de Mant.:   {registro.get('desc_mant', 'N/A')}\n\n")
+            
+            if lineas_tecnicas:
+                f.write("EVALUACIÓN TÉCNICA Y DIAGNÓSTICO FUNCIONAL:\n")
+                f.write("-" * 45 + "\n")
+                for lin in lineas_tecnicas:
+                    f.write(f"{lin}\n")
+                f.write("\n")
+                
+            f.write("JUSTIFICACIÓN / MOTIVO DE LA BAJA:\n")
+            f.write("-" * 45 + "\n")
+            f.write(f"{registro.get('motivo_baja', 'N/A')}\n\n")
+            f.write("=" * 72 + "\n")
+            f.write("Firma Responsable Área: ____________________\n")
+            f.write("Bienes Nacionales:      ____________________\n")
         return archivo_txt
