@@ -339,7 +339,7 @@
     {
         "id": 14,
         "nombre": "Teclado y Mouse Inalámbrico Logitech MK270",
-        "asignado_a": "Secretaría Ejecutiva",
+        "asignado_a": "Rectorado",
         "mantenimiento": "No",
         "fecha_mant": "N/A",
         "proximo_mant": "N/A",
@@ -348,7 +348,7 @@
     {
         "id": 21,
         "nombre": "Computadora de escritorio",
-        "asignado_a": "Rectorado",
+        "asignado_a": "Coordinación de Docencia",
         "mantenimiento": "No",
         "fecha_mant": "N/A",
         "proximo_mant": "N/A",
@@ -364,53 +364,6 @@
         "perifericos": {
             "tipo": "Computadora de escritorio",
             "incluye_perifericos": false,
-            "cpu": {
-                "estado": "Operativo al 100%",
-                "detalle": "En buen estado operativo"
-            }
-        }
-    },
-    {
-        "id": 23,
-        "nombre": "Computadora de escritorio",
-        "asignado_a": "Comunicaciones y Prensa",
-        "mantenimiento": "No",
-        "fecha_mant": "N/A",
-        "proximo_mant": "N/A",
-        "desc_mant": "",
-        "detalles_tecnicos": {
-            "incluye_perifericos": false,
-            "monitor": {
-                "estado": "Operativo",
-                "detalle": "En buen estado operativo"
-            },
-            "teclado": {
-                "estado": "Operativo",
-                "detalle": "En buen estado operativo"
-            },
-            "mouse": {
-                "estado": "Operativo",
-                "detalle": "En buen estado operativo"
-            },
-            "cpu": {
-                "estado": "Operativo al 100%",
-                "detalle": "En buen estado operativo"
-            }
-        },
-        "perifericos": {
-            "incluye_perifericos": false,
-            "monitor": {
-                "estado": "Operativo",
-                "detalle": "En buen estado operativo"
-            },
-            "teclado": {
-                "estado": "Operativo",
-                "detalle": "En buen estado operativo"
-            },
-            "mouse": {
-                "estado": "Operativo",
-                "detalle": "En buen estado operativo"
-            },
             "cpu": {
                 "estado": "Operativo al 100%",
                 "detalle": "En buen estado operativo"
@@ -420,121 +373,37 @@
     {
         "id": 211,
         "nombre": "Impresora",
-        "asignado_a": "Comunicaciones y Prensa",
-        "mantenimiento": "No",
-        "fecha_mant": "N/A",
-        "proximo_mant": "N/A",
-        "desc_mant": "",
-        "detalles_tecnicos": {
-            "impresion": {
-                "estado": "Operativa",
-                "detalle": "En buen estado operativo"
-            },
-            "copia": {
-                "estado": "Operativa",
-                "detalle": "En buen estado operativo"
-            },
-            "scanner": {
-                "estado": "Operativa",
-                "detalle": "En buen estado operativo"
-            }
-        },
-        "perifericos": {
-            "impresion": {
-                "estado": "Operativa",
-                "detalle": "En buen estado operativo"
-            },
-            "copia": {
-                "estado": "Operativa",
-                "detalle": "En buen estado operativo"
-            },
-            "scanner": {
-                "estado": "Operativa",
-                "detalle": "En buen estado operativo"
-            }
-        }
-    },
-    {
-        "id": 2111,
-        "nombre": "Router",
-        "asignado_a": "Comunicaciones y Prensa",
-        "mantenimiento": "No",
-        "fecha_mant": "N/A",
-        "proximo_mant": "N/A",
-        "desc_mant": "",
-        "detalles_tecnicos": {
-            "marca": "Genérica",
-            "modelo": "N/A",
-            "estado_general": "Funcional",
-            "detalle_falla": ""
-        },
-        "perifericos": {
-            "marca": "Genérica",
-            "modelo": "N/A",
-            "estado_general": "Funcional",
-            "detalle_falla": ""
-        }
-    },
-    {
-        "id": 123,
-        "nombre": "Computadora de escritorio",
         "asignado_a": "Departamento de Sistemas",
         "mantenimiento": "No",
-        "fecha_mant": "15/10/2026",
-        "proximo_mant": "15/01/2027",
-        "desc_mant": "Al toque",
+        "fecha_mant": "N/A",
+        "proximo_mant": "N/A",
+        "desc_mant": "",
         "detalles_tecnicos": {
-            "tipo": "Computadora de escritorio",
-            "incluye_perifericos": true,
-            "cpu": {
-                "estado": "Operativo al 100%",
-                "detalle": "En buen estado operativo",
-                "componentes_internos": {
-                    "placa_madre": "Operativo",
-                    "procesador": "Operativo",
-                    "memoria_ram": "Operativo",
-                    "disco_duro": "Operativo",
-                    "fuente_poder": "Operativo"
-                }
+            "impresion": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
             },
-            "monitor": {
-                "estado": "Operativo",
-                "detalle": "al toque y bueno"
+            "copia": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
             },
-            "teclado": {
-                "estado": "Operativo",
-                "detalle": ""
-            },
-            "mouse": {
-                "estado": "Operativo",
-                "detalle": ""
+            "scanner": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
             }
         },
         "perifericos": {
-            "tipo": "Computadora de escritorio",
-            "incluye_perifericos": true,
-            "cpu": {
-                "estado": "Operativo al 100%",
-                "detalle": "En buen estado operativo",
-                "componentes_internos": {
-                    "placa_madre": "Operativo",
-                    "procesador": "Operativo",
-                    "memoria_ram": "Operativo",
-                    "disco_duro": "Operativo",
-                    "fuente_poder": "Operativo"
-                }
+            "impresion": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
             },
-            "monitor": {
-                "estado": "Operativo",
-                "detalle": "al toque y bueno"
+            "copia": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
             },
-            "teclado": {
-                "estado": "Operativo",
-                "detalle": ""
-            },
-            "mouse": {
-                "estado": "Operativo",
-                "detalle": ""
+            "scanner": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
             }
         }
     }

@@ -1,0 +1,119 @@
+[
+    {
+        "referencia": "TRASLADO-20261015-175632",
+        "fecha": "15/10/2026",
+        "origen": "Departamento de Sistemas",
+        "destino": "Rectorado",
+        "motivo": "papa",
+        "observaciones": "optimo",
+        "firma_jefe_nombre": "Ing. Coordinador de CTSI",
+        "firma_jefe_ci": "V-12345678",
+        "firma_receptor_nombre": "luis sanchez",
+        "firma_receptor_ci": "V-1234567",
+        "firma_receptor_cargo": "no se xd",
+        "equipos": [
+            {
+                "id": "211",
+                "nombre": "Impresora",
+                "asignado_a": "Comunicaciones y Prensa",
+                "estado": "Operativo"
+            }
+        ]
+    },
+    {
+        "referencia": "TRASLADO-20261015-180751",
+        "fecha": "15/10/2026",
+        "origen": "Comunicaciones y Prensa",
+        "destino": "Rectorado",
+        "motivo": "ni idea",
+        "observaciones": "optimo",
+        "firma_jefe_nombre": "Ing. Coordinador de CTSI",
+        "firma_jefe_ci": "V-12345678",
+        "firma_receptor_nombre": "luis sanchez",
+        "firma_receptor_ci": "V-1234567",
+        "firma_receptor_cargo": "el papa de los  helados",
+        "equipos": [
+            {
+                "id": "211",
+                "nombre": "Impresora",
+                "asignado_a": "Comunicaciones y Prensa",
+                "estado": "Operativo"
+            }
+        ]
+    },
+    {
+        "referencia": "TRASLADO-20261015-181733",
+        "fecha": "15/10/2026",
+        "origen": "Rectorado",
+        "destino": "Laboratorio 1",
+        "motivo": "pipi",
+        "observaciones": "caca",
+        "firma_jefe_nombre": "Ing. Coordinador de CTSI",
+        "firma_jefe_ci": "V-12345678",
+        "firma_receptor_nombre": "luis sanchez",
+        "firma_receptor_ci": "V-12345678",
+        "firma_receptor_cargo": "el gerente",
+        "equipos": [
+            {
+                "id": "21",
+                "nombre": "Computadora de escritorio",
+                "asignado_a": "Rectorado",
+                "estado": "Operativo"
+            },
+            {
+                "id": "211",
+                "nombre": "Impresora",
+                "asignado_a": "Rectorado",
+                "estado": "Operativo"
+            }
+        ]
+    },
+    {
+        "referencia": "TRASLADO-20261015-181901",
+        "fecha": "15/10/2026",
+        "origen": "Secretaría Ejecutiva, Laboratorio 1",
+        "destino": "Rectorado",
+        "motivo": "caca",
+        "observaciones": "pipi",
+        "firma_jefe_nombre": "Ing. Coordinador de CTSI",
+        "firma_jefe_ci": "V-12345678",
+        "firma_receptor_nombre": "luis sanchez",
+        "firma_receptor_ci": "V-12345678",
+        "firma_receptor_cargo": "popo",
+        "equipos": [
+            {
+                "id": "14",
+                "nombre": "Teclado y Mouse Inalámbrico Logitech MK270",
+                "asignado_a": "Secretaría Ejecutiva",
+                "estado": "Operativo"
+            },
+            {
+                "id": "21",
+                "nombre": "Computadora de escritorio",
+                "asignado_a": "Laboratorio 1",
+                "estado": "Operativo"
+            }
+        ]
+    },
+    {
+        "referencia": "TRASLADO-20261015-182208",
+        "fecha": "15/10/2026",
+        "origen": "Laboratorio 1",
+        "destino": "Departamento de Sistemas",
+        "motivo": "a",
+        "observaciones": "a",
+        "firma_jefe_nombre": "Ing. Coordinador de CTSI",
+        "firma_jefe_ci": "V-12345678",
+        "firma_receptor_nombre": "a",
+        "firma_receptor_ci": "a",
+        "firma_receptor_cargo": "a",
+        "equipos": [
+            {
+                "id": "211",
+                "nombre": "Impresora",
+                "asignado_a": "Laboratorio 1",
+                "estado": "Operativo"
+            }
+        ]
+    }
+]

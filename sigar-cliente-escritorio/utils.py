@@ -1,12 +1,41 @@
 # -*- coding: utf-8 -*-
 """
 Módulo de Utilidades, Validaciones y Generación de Documentación Institucional en PDF - SIGART UNELLEZ VIPI
+Incluye parche de compatibilidad para Python 3.8 (Win32) y ReportLab.
 """
 import calendar
 import os
 import sys
 from datetime import date, datetime, timedelta
 from tkinter import messagebox
+
+# =========================================================================
+# PARCHE DE COMPATIBILIDAD CRÍTICO PARA PYTHON 3.8 / WIN32 (usedforsecurity)
+# =========================================================================
+import hashlib
+try:
+    import _hashlib
+    if hasattr(_hashlib, 'openssl_md5'):
+        _orig_openssl_md5 = _hashlib.openssl_md5
+        def _safe_openssl_md5(*args, **kwargs):
+            kwargs.pop('usedforsecurity', None)
+            return _orig_openssl_md5(*args, **kwargs)
+        _hashlib.openssl_md5 = _safe_openssl_md5
+except Exception:
+    pass
+
+_orig_hashlib_md5 = hashlib.md5
+def _safe_hashlib_md5(*args, **kwargs):
+    kwargs.pop('usedforsecurity', None)
+    return _orig_hashlib_md5(*args, **kwargs)
+hashlib.md5 = _safe_hashlib_md5
+
+_orig_hashlib_new = hashlib.new
+def _safe_hashlib_new(name, *args, **kwargs):
+    kwargs.pop('usedforsecurity', None)
+    return _orig_hashlib_new(name, *args, **kwargs)
+hashlib.new = _safe_hashlib_new
+# =========================================================================
 
 try:
     from PIL import Image, ImageTk
@@ -134,7 +163,6 @@ def generar_acta_baja(registro):
                 lineas_eval.append(f"• {k.upper()}: [{v.get('estado', 'N/A')}] {v.get('detalle', '')}")
 
     if not HAS_REPORTLAB:
-        # Fallback de emergencia a texto si no estuviera reportlab
         archivo_txt = archivo_salida.replace(".pdf", ".txt")
         with open(archivo_txt, "w", encoding="utf-8") as f:
             f.write(f"ACTA DE BAJA ID {id_activo}\nMotivo: {registro.get('motivo_baja')}")
@@ -214,7 +242,6 @@ def generar_acta_baja(registro):
         c.setFont("Helvetica", 9)
         y -= 18
         motivo = registro.get("motivo_baja", "Sin justificación.")
-        # Word wrap simple
         palabras = motivo.split()
         l_txt = ""
         for p in palabras:
@@ -276,7 +303,7 @@ def generar_acta_traslado(datos_traslado):
         c = canvas.Canvas(archivo_salida, pagesize=letter)
         w, h = letter
 
-        # Membrete
+        # Membrete institucional superior
         c.setFillColorRGB(0.0, 0.17, 0.29)
         c.rect(40, h - 55, w - 80, 30, fill=1, stroke=0)
         c.setFillColorRGB(1, 1, 1)
@@ -285,6 +312,7 @@ def generar_acta_traslado(datos_traslado):
         c.setFont("Helvetica-Bold", 8)
         c.drawCentredString(w / 2, h - 51, "COORDINACIÓN DE TECNOLOGÍA Y SERVICIOS DE INFORMACIÓN (CTSI) - VICERRECTORADO VIPI")
 
+        # Título del documento
         c.setFillColorRGB(0.1, 0.1, 0.1)
         c.setFont("Helvetica-Bold", 12)
         c.drawCentredString(w / 2, h - 75, "ACTA OFICIAL DE TRASLADO Y CUSTODIA DE EQUIPOS")
@@ -307,15 +335,16 @@ def generar_acta_traslado(datos_traslado):
 
         c.setFillColorRGB(0, 0, 0)
         c.setFont("Helvetica", 9)
-        y -= 18
-        c.drawString(50, y, f"• Dependencia Origen: {datos_traslado.get('origen', 'N/A')}")
-        c.drawString(320, y, f"• Dependencia Destino: {datos_traslado.get('destino', 'N/A')}")
+        y -= 17
+        c.drawString(50, y, f"• Dependencia(s) de Origen: {datos_traslado.get('origen', 'N/A')[:85]}")
         y -= 14
-        c.drawString(50, y, f"• Motivo: {datos_traslado.get('motivo', 'Reasignación operativa')[:80]}")
+        c.drawString(50, y, f"• Dependencia de Destino:   {datos_traslado.get('destino', 'N/A')}")
         y -= 14
-        c.drawString(50, y, f"• Condiciones: {datos_traslado.get('observaciones', 'Equipos verificados')[:80]}")
+        c.drawString(50, y, f"• Motivo del Traslado:     {datos_traslado.get('motivo', 'Reasignación operativa')[:85]}")
+        y -= 14
+        c.drawString(50, y, f"• Condiciones de Entrega:   {datos_traslado.get('observaciones', 'Equipos verificados')[:85]}")
 
-        # Bloque 2: Tabla de Equipos
+        # Bloque 2: Tabla de Equipos (AQUÍ ESTÁ EXACTAMENTE UNA SOLA VEZ)
         y -= 22
         c.setFillColorRGB(0.93, 0.95, 0.98)
         c.rect(40, y - 5, w - 80, 16, fill=1, stroke=0)
@@ -335,10 +364,11 @@ def generar_acta_traslado(datos_traslado):
         c.drawString(330, y, "Asignación Previa")
         c.drawString(490, y, "Estado")
 
+        # Filas de la tabla de equipos
         c.setFont("Helvetica", 8)
         y -= 14
         for idx, it in enumerate(datos_traslado.get("equipos", []), start=1):
-            if y < 140:  # Límite de página
+            if y < 140:
                 break
             c.drawString(50, y, f"{idx:02d}")
             c.drawString(75, y, f"#{it.get('id', 'N/A')}")
@@ -347,12 +377,12 @@ def generar_acta_traslado(datos_traslado):
             c.drawString(490, y, "Operativo")
             y -= 12
 
-        # Cláusula
+        # Cláusula de Custodia
         y = min(y - 8, 160)
         c.setFont("Helvetica-Oblique", 7)
         c.drawString(45, y, "El custodio receptor asume la guarda, conservación y uso debido de los bienes a partir de la firma de la presente acta.")
 
-        # Firmas
+        # Bloque de Firmas
         y_firma = 100
         c.setLineWidth(0.7)
         c.setStrokeColorRGB(0.3, 0.3, 0.3)
@@ -377,7 +407,7 @@ def generar_acta_traslado(datos_traslado):
         c.drawCentredString(490, y_firma - 22, "Bienes Públicos UNELLEZ")
         c.drawCentredString(490, y_firma - 31, "Auditoría Interna")
 
-        # Pie
+        # Pie de página
         c.setFont("Helvetica-Oblique", 7)
         c.drawString(45, 30, "Documento oficial generado por la plataforma SIGART — UNELLEZ VIPI")
         c.drawRightString(w - 45, 30, f"Impreso: {datetime.now().strftime('%d/%m/%Y %H:%M:%S')}")

@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Módulo de Vistas Especializadas - SIGART UNELLEZ VIPI
-Implementa el panel para la generación y emisión de Actas de Traslado de Equipos en PDF.
+Implementa el panel para la generación y emisión de Actas de Traslado de Equipos en PDF
+con extracción automática de procedencia y actualización del inventario.
 """
 from datetime import date, datetime
 import tkinter as tk
@@ -9,9 +10,11 @@ from tkinter import messagebox, ttk
 import customtkinter as ctk
 
 try:
-    from database import registrar_traslado_local
+    from database import registrar_traslado_local, actualizar_asignacion_bienes_trasladados
 except ImportError:
     def registrar_traslado_local(registro_traslado):
+        return True
+    def actualizar_asignacion_bienes_trasladados(ids, destino):
         return True
 
 from utils import generar_acta_traslado
@@ -20,12 +23,13 @@ from utils import generar_acta_traslado
 class VistaTraslado(ctk.CTkFrame):
     """Vista principal para la elaboración y exportación de Actas de Traslado de Equipos."""
 
-    def __init__(self, parent, obtener_bienes_callback, modo_oscuro=True, paleta=None):
+    def __init__(self, parent, obtener_bienes_callback, modo_oscuro=True, paleta=None, actualizar_inventario_callback=None):
         super().__init__(parent, fg_color="transparent")
         self.parent = parent
         self.obtener_bienes_callback = obtener_bienes_callback
         self.modo_oscuro = modo_oscuro
         self.paleta = paleta or {}
+        self.actualizar_inventario_callback = actualizar_inventario_callback
 
         self.columnconfigure(0, weight=1)
         self.rowconfigure(0, weight=0)
@@ -52,9 +56,8 @@ class VistaTraslado(ctk.CTkFrame):
     def crear_cuerpo(self):
         f_mid = ctk.CTkFrame(self, corner_radius=10)
         f_mid.grid(row=1, column=0, sticky="nsew", padx=15, pady=4)
-        # El formulario izquierdo tiene ancho fijo/compacto y la tabla derecha toma todo el espacio sobrante
-        f_mid.columnconfigure(0, weight=0)
-        f_mid.columnconfigure(1, weight=1)
+        f_mid.columnconfigure(0, weight=0)  # Panel izquierdo compacto
+        f_mid.columnconfigure(1, weight=1)  # Tabla derecha toma todo el ancho
         f_mid.rowconfigure(0, weight=1)
 
         # Panel izquierdo compacto (340px)
@@ -63,24 +66,12 @@ class VistaTraslado(ctk.CTkFrame):
         f_izq.columnconfigure(1, weight=1)
 
         r = 0
-        ctk.CTkLabel(f_izq, text="Dependencia Origen:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=r, column=0, padx=8, pady=4, sticky="w")
-        self.combo_origen = ctk.CTkOptionMenu(
-            f_izq,
-            values=[
-                "Departamento de Sistemas", "Rectorado", "Laboratorio 1", "Control de Estudios",
-                "Servicios Generales", "Planificación y Presupuesto", "Coordinación de Docencia",
-                "Comunicaciones y Prensa", "Secretaría Ejecutiva", "Recursos Humanos", "Taller Central CTSI"
-            ],
-            height=28
-        )
-        self.combo_origen.grid(row=r, column=1, padx=8, pady=4, sticky="ew")
-
-        r += 1
+        # Solo se selecciona la dependencia destino
         ctk.CTkLabel(f_izq, text="Dependencia Destino:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=r, column=0, padx=8, pady=4, sticky="w")
         self.combo_destino = ctk.CTkOptionMenu(
             f_izq,
             values=[
-                "Laboratorio 1", "Rectorado", "Departamento de Sistemas", "Control de Estudios",
+                "Rectorado", "Departamento de Sistemas", "Laboratorio 1", "Control de Estudios",
                 "Servicios Generales", "Planificación y Presupuesto", "Coordinación de Docencia",
                 "Comunicaciones y Prensa", "Secretaría Ejecutiva", "Recursos Humanos", "Taller Central CTSI"
             ],
@@ -108,7 +99,7 @@ class VistaTraslado(ctk.CTkFrame):
         sep = ctk.CTkFrame(f_izq, height=2, fg_color="#334155")
         sep.grid(row=r, column=0, columnspan=2, sticky="ew", padx=8, pady=10)
 
-        # Firmas
+        # Firmas institucionales
         r += 1
         ctk.CTkLabel(f_izq, text="Jefe de CTSI (Emisor):", font=ctk.CTkFont(size=11, weight="bold"), text_color="#38bdf8").grid(row=r, column=0, padx=8, pady=2, sticky="w")
         self.entry_jefe_nom = ctk.CTkEntry(f_izq, placeholder_text="Nombre del Jefe de CTSI", height=28)
@@ -136,7 +127,7 @@ class VistaTraslado(ctk.CTkFrame):
         self.entry_rec_cargo = ctk.CTkEntry(f_izq, placeholder_text="Cargo o Función", height=28)
         self.entry_rec_cargo.grid(row=r, column=1, padx=8, pady=2, sticky="ew")
 
-        # Panel derecho: Tabla con ancho expandido prioritario para nombres de equipos
+        # Panel derecho: Tabla de activos
         f_der = ctk.CTkFrame(f_mid, corner_radius=8)
         f_der.grid(row=0, column=1, sticky="nsew", padx=(5, 10), pady=10)
         f_der.rowconfigure(1, weight=1)
@@ -154,7 +145,6 @@ class VistaTraslado(ctk.CTkFrame):
         self.tabla_activos.heading("nombre", text="Activo / Equipo Tecnológico", anchor="w")
         self.tabla_activos.heading("asignado", text="Asignado a / Área", anchor="w")
 
-        # Configuración de anchos: la columna "nombre" toma todo el espacio extra libre
         self.tabla_activos.column("sel", width=32, minwidth=32, stretch=False, anchor="center")
         self.tabla_activos.column("id", width=46, minwidth=40, stretch=False, anchor="center")
         self.tabla_activos.column("nombre", width=340, minwidth=240, stretch=True, anchor="w")
@@ -219,7 +209,6 @@ class VistaTraslado(ctk.CTkFrame):
         self.cargar_equipos_en_tabla()
 
     def procesar_acta_traslado(self):
-        origen = self.combo_origen.get().strip()
         destino = self.combo_destino.get().strip()
         motivo = self.entry_motivo.get().strip()
         fecha = self.entry_fecha.get().strip()
@@ -228,10 +217,6 @@ class VistaTraslado(ctk.CTkFrame):
         rec_nom = self.entry_rec_nom.get().strip()
         rec_ci = self.entry_rec_ci.get().strip()
         rec_cargo = self.entry_rec_cargo.get().strip()
-
-        if origen == destino:
-            messagebox.showwarning("Ubicación Idéntica", "La dependencia de origen y destino no pueden ser iguales.")
-            return
 
         if not motivo:
             messagebox.showwarning("Motivo Requerido", "Por favor detalle el motivo formal del traslado.")
@@ -256,11 +241,28 @@ class VistaTraslado(ctk.CTkFrame):
             messagebox.showwarning("Sin Selección", "Marque al menos un activo de la tabla con clic para trasladar.")
             return
 
+        # Extracción automática de las dependencias de origen desde los activos seleccionados
+        origenes_unicos = []
+        for eq in equipos_sel:
+            orig = eq.get("asignado_a", "N/A")
+            if orig and orig not in origenes_unicos:
+                origenes_unicos.append(orig)
+
+        origen_str = ", ".join(origenes_unicos) if origenes_unicos else "No especificado"
+
+        # Validación: si todos los equipos seleccionados ya están en la dependencia destino
+        if len(origenes_unicos) == 1 and origenes_unicos[0] == destino:
+            messagebox.showwarning(
+                "Ubicación Idéntica",
+                f"Todos los equipos seleccionados ya se encuentran asignados a '{destino}'."
+            )
+            return
+
         ref_id = f"TRASLADO-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
         datos_acta = {
             "referencia": ref_id,
             "fecha": fecha,
-            "origen": origen,
+            "origen": origen_str,
             "destino": destino,
             "motivo": motivo,
             "observaciones": self.entry_obs.get().strip() or "Sin observaciones adicionales",
@@ -272,11 +274,24 @@ class VistaTraslado(ctk.CTkFrame):
             "equipos": equipos_sel
         }
 
+        # 1. Generar el documento PDF oficial
         archivo_salida = generar_acta_traslado(datos_acta)
         if archivo_salida:
+            # 2. Registrar el traslado en el historial
             registrar_traslado_local(datos_acta)
+
+            # 3. Actualizar la asignación de los activos en bienes.json
+            ids_trasladados = [eq["id"] for eq in equipos_sel]
+            actualizar_asignacion_bienes_trasladados(ids_trasladados, destino)
+
+            # 4. Refrescar el inventario en tiempo real
+            if self.actualizar_inventario_callback:
+                self.actualizar_inventario_callback()
+            self.cargar_equipos_en_tabla()
+
             messagebox.showinfo(
                 "Acta de Traslado Emitida",
-                f"El Acta de Traslado ha sido generada en formato PDF:\n\n{archivo_salida}"
+                f"El Acta de Traslado ha sido generada en formato PDF:\n\n{archivo_salida}\n\n"
+                f"Los bienes seleccionados han sido reasignados a: '{destino}'."
             )
             self.limpiar_campos()

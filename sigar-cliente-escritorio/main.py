@@ -330,7 +330,8 @@ class InventarioBienesApp:
             self.contenedor_vistas,
             obtener_bienes_callback=lambda: self.bienes,
             modo_oscuro=self.modo_oscuro,
-            paleta=self.PALETA
+            paleta=self.PALETA,
+            actualizar_inventario_callback=self.recargar_datos_completos
         )
 
         self.vista_inventario.grid(row=0, column=0, sticky="nsew")
@@ -630,7 +631,7 @@ class InventarioBienesApp:
             font=ctk.CTkFont(size=10), text_color="#94a3b8"
         ).pack(side="right")
 
-    # ================= TABLA DE DATOS =================
+   # ================= TABLA DE DATOS =================
     def crear_tabla(self, parent):
         self.frame_tabla = ctk.CTkFrame(parent, corner_radius=6, border_width=0)
         self.frame_tabla.grid(row=3, column=0, sticky="nsew", padx=12, pady=4)
@@ -640,25 +641,36 @@ class InventarioBienesApp:
         cols = ("id", "nombre", "asignado_a", "mantenimiento", "fecha_mant", "proximo_mant")
         self.tabla = ttk.Treeview(self.frame_tabla, columns=cols, show="tree headings")
 
-        self.tabla.heading("#0", text="  ID", anchor="center")
-        self.tabla.heading("id", text="Activo", anchor="center")
-        self.tabla.heading("nombre", text="Descripción / Equipo Tecnológico")
-        self.tabla.heading("asignado_a", text="Asignado a / Área")
-        self.tabla.heading("mantenimiento", text="Régimen Mant.")
-        self.tabla.heading("fecha_mant", text="Fecha Mant./Ingreso")
-        self.tabla.heading("proximo_mant", text="Próx. Fecha Hábil (+3M)")
+        # 1. Encabezados de columnas ordenados lógicamente
+        self.tabla.heading("#0", text="", anchor="center")
+        self.tabla.heading("id", text="ID Activo", anchor="center")
+        self.tabla.heading("nombre", text="Descripción / Equipo Tecnológico", anchor="w")
+        self.tabla.heading("asignado_a", text="Asignado a / Área", anchor="w")
+        self.tabla.heading("mantenimiento", text="Régimen Mant.", anchor="center")
+        self.tabla.heading("fecha_mant", text="Fecha consolidado", anchor="center")
+        self.tabla.heading("proximo_mant", text="Próx. Fecha Hábil (+3M)", anchor="center")
 
-        self.tabla.column("#0", width=34, minwidth=34, anchor="center", stretch=False)
-        self.tabla.column("id", width=50, minwidth=40, anchor="center", stretch=False)
-        self.tabla.column("nombre", width=240, minwidth=140, anchor="w", stretch=True)
-        self.tabla.column("asignado_a", width=140, minwidth=120, anchor="w", stretch=True)
-        self.tabla.column("mantenimiento", width=110, minwidth=90, anchor="center", stretch=False)
-        self.tabla.column("fecha_mant", width=110, minwidth=90, anchor="center", stretch=False)
-        self.tabla.column("proximo_mant", width=140, minwidth=120, anchor="center", stretch=False)
+        # 2. Configuración de anchos milimétricos:
+        # Columna de icono de advertencia técnica
+        self.tabla.column("#0", width=20, minwidth=20, anchor="center", stretch=False)
+        # Columna de número de ID del activo
+        self.tabla.column("id", width=70, minwidth=55, anchor="center", stretch=False)
+        # Columna elástica: toma todo el ancho sobrante de la pantalla
+        self.tabla.column("nombre", width=260, minwidth=180, anchor="w", stretch=True)
+        # Área asignada con espacio suficiente para nombres largos de dependencias
+        self.tabla.column("asignado_a", width=185, minwidth=150, anchor="w", stretch=False)
+        # Régimen de mantenimiento (Sí Preventivo / Sí Correctivo / No)
+        self.tabla.column("mantenimiento", width=130, minwidth=115, anchor="center", stretch=False)
+        # Fecha de ingreso / último mantenimiento (DD/MM/AAAA)
+        self.tabla.column("fecha_mant", width=115, minwidth=95, anchor="center", stretch=False)
+        # Próxima fecha hábil calculada (+3 meses hábiles)
+        self.tabla.column("proximo_mant", width=155, minwidth=135, anchor="center", stretch=False)
 
+        # Eventos de interacción
         self.tabla.bind("<Double-1>", self.cargar_seleccion_para_editar)
         self.tabla.bind("<Button-3>", self.mostrar_menu_contextual)
 
+        # Barra de desplazamiento vertical
         sc = ctk.CTkScrollbar(self.frame_tabla, command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=sc.set)
 
@@ -961,15 +973,22 @@ class InventarioBienesApp:
                 "motivo_baja": motivo.strip(),
                 "fecha_baja": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             }
-            self.bienes = [b for b in self.bienes if b["id"] != id_bien]
-            guardar_datos_locales(self.bienes)
-            guardar_baja_local(registro_baja)
 
+            # 1. Intentar generar el documento PDF
             archivo_acta = generar_acta_baja(registro_baja)
-            self.actualizar_tabla()
-            self.actualizar_metricas()
-            self.limpiar_formulario()
-            messagebox.showinfo("Baja Procesada", f"El activo ha sido desincorporado.\nActa emitida en PDF:\n{archivo_acta}")
+            
+            # 2. Solo si el archivo se genera con éxito, se procesa la baja local
+            if archivo_acta:
+                self.bienes = [b for b in self.bienes if b["id"] != id_bien]
+                guardar_datos_locales(self.bienes)
+                guardar_baja_local(registro_baja)
+
+                self.actualizar_tabla()
+                self.actualizar_metricas()
+                self.limpiar_formulario()
+                messagebox.showinfo("Baja Procesada", f"El activo ha sido desincorporado exitosamente.\n\nActa emitida en PDF:\n{archivo_acta}")
+            else:
+                messagebox.showwarning("Atención", "No se pudo generar el PDF del acta. La operación de desincorporación ha sido cancelada para proteger el registro.")
 
     # ================= RECARGA Y TEMA =================
     def recargar_datos_completos(self):

@@ -243,3 +243,16 @@ def importar_bd(ruta_origen):
         return True, "Base de datos restaurada correctamente."
     except Exception as e:
         return False, f"Fallo al importar la base de datos: {e}"
+
+def actualizar_asignacion_bienes_trasladados(ids_trasladados, nuevo_destino):
+    """Actualiza en bienes.json la dependencia asignada de los activos que fueron trasladados."""
+    bienes = cargar_datos_locales()
+    ids_set = {str(i) for i in ids_trasladados}
+    modificado = False
+    for b in bienes:
+        if str(b.get("id")) in ids_set:
+            b["asignado_a"] = nuevo_destino
+            modificado = True
+    if modificado:
+        guardar_datos_locales(bienes)
+    return modificado
