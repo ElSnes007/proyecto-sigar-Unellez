@@ -8,5 +8,51 @@
         "desc_mant": "Análisis S.M.A.R.T. y verificación de sectores",
         "motivo_baja": "test",
         "fecha_baja": "01/10/2026 19:06:12"
+    },
+    {
+        "id": 15,
+        "nombre": "Computadora de escritorio",
+        "asignado_a": "Departamento de Sistemas",
+        "mantenimiento": "No",
+        "fecha_ultimo_mant": "N/A",
+        "desc_mant": "",
+        "detalles_tecnicos": {
+            "monitor": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "cpu": {
+                "estado": "Operativo al 100%",
+                "detalle": "En buen estado operativo"
+            }
+        },
+        "perifericos": {
+            "monitor": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "cpu": {
+                "estado": "Operativo al 100%",
+                "detalle": "En buen estado operativo"
+            }
+        },
+        "motivo_baja": "pepe",
+        "fecha_baja": "14/10/2026 18:42:35"
     }
 ]
