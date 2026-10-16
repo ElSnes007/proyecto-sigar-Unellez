@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Módulo Principal de la Aplicación SIGART - UNELLEZ VIPI
-Controlador de interfaz gráfica con Menú Flotante (Drawer Overlay) sobre el contenido.
-Elimina al 100% la pantalla negra, los parpadeos y los recálculos de geometría.
+Controlador de interfaz gráfica con Menú Flotante (Drawer Overlay) y
+cambio de tema sin parpadeos (Zero-Flicker) mediante API DWM de Windows.
 """
 import ctypes
 import os
@@ -45,6 +45,9 @@ from views import VistaTraslado
 if HAS_PIL:
     from PIL import Image, ImageTk
 
+# Equipos que no requieren ventana modal de diagnóstico técnico
+TIPOS_SIN_DIAGNOSTICO = ["Router", "Switch de red", "Escáner", "Monitor"]
+
 
 def colorear_icono_png(ruta_png, color_hex):
     """Carga un PNG y tiñe su silueta con el color hexadecimal indicado."""
@@ -64,7 +67,6 @@ def colorear_icono_png(ruta_png, color_hex):
 ctk.set_appearance_mode("System")
 ctk.set_default_color_theme("blue")
 
-# Configuración de DPI segura para Windows 7
 try:
     ctypes.windll.shcore.SetProcessDpiAwareness(1)
 except Exception:
@@ -90,31 +92,25 @@ PATH_LEMA = os.path.join(DIR_ACTUAL, "lema_unellez_oro.png")
 
 def verificar_informacion_completa(bien):
     """Verifica si el activo cuenta con diagnóstico técnico exhaustivo."""
+    tipo = bien.get("nombre", "")
+
+    # Router, Switch de red, Escáner y Monitor no requieren diagnóstico técnico modal
+    if tipo in TIPOS_SIN_DIAGNOSTICO:
+        return True
+
     detalles = bien.get("detalles_tecnicos") or bien.get("perifericos") or {}
     if not detalles:
         return False
 
-    tipo = bien.get("nombre", "")
     if tipo == "Computadora de escritorio":
         cpu_data = detalles.get("cpu", {})
         if not cpu_data:
-            return False
-        if "Dañad" in cpu_data.get("estado", "") and not cpu_data.get("detalle", "").strip():
             return False
         if es_verdadero(detalles.get("incluye_perifericos", False)):
             for k in ["monitor", "teclado", "mouse"]:
                 p_dat = detalles.get(k, {})
                 if "Dañad" in p_dat.get("estado", "") and not p_dat.get("detalle", "").strip():
                     return False
-        return True
-
-    elif tipo in ["Router", "Switch de red"]:
-        marca = detalles.get("marca", "").strip()
-        modelo = detalles.get("modelo", "").strip()
-        if not marca or not modelo:
-            return False
-        if detalles.get("estado_general") in ["Funcional con fallas", "Dañado"] and not detalles.get("detalle_falla", "").strip():
-            return False
         return True
 
     else:
@@ -133,6 +129,8 @@ class InventarioBienesApp:
         self.root.geometry("1180x740")
         self.root.minsize(940, 620)
 
+        self._parchear_titlebar_customtkinter()
+
         self.modo_actual = cargar_preferencia_tema()
         self.modo_oscuro = self.modo_actual == "oscuro"
         ctk.set_appearance_mode("Dark" if self.modo_oscuro else "Light")
@@ -141,6 +139,8 @@ class InventarioBienesApp:
         self.datos_tecnicos_temporales = None
         self.imagenes_tabla_ref = []
         self.menu_abierto = False
+        self._toggling_tema = False
+        self._cache_iconos = {}
 
         try:
             self.root.state("zoomed")
@@ -148,9 +148,9 @@ class InventarioBienesApp:
             pass
 
         self.root.columnconfigure(0, weight=1)
-        self.root.rowconfigure(0, weight=0)  # Cintillo
-        self.root.rowconfigure(1, weight=1)  # Contenedor Maestro
-        self.root.rowconfigure(2, weight=0)  # Pie de página
+        self.root.rowconfigure(0, weight=0)
+        self.root.rowconfigure(1, weight=1)
+        self.root.rowconfigure(2, weight=0)
 
         self.PALETA = PALETA
         self.bienes = []
@@ -167,21 +167,52 @@ class InventarioBienesApp:
 
         self.aplicar_tema_widgets()
 
-        # Detector de clics para cerrar el menú si se hace clic afuera
         self.root.bind("<Button-1>", self.detectar_clic_fuera_del_menu, add="+")
 
         self.recargar_datos_completos()
         self.root.after(200, self.activar_foco_inicial)
+
+    def _parchear_titlebar_customtkinter(self):
+        def _safe_windows_titlebar(color_mode):
+            try:
+                hwnd = ctypes.windll.user32.GetParent(self.root.winfo_id())
+                dark_flag = ctypes.c_int(1 if str(color_mode).lower() in ("dark", "oscuro") else 0)
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 20, ctypes.byref(dark_flag), ctypes.sizeof(dark_flag))
+                ctypes.windll.dwmapi.DwmSetWindowAttribute(hwnd, 19, ctypes.byref(dark_flag), ctypes.sizeof(dark_flag))
+
+                SWP_FRAMECHANGED = 0x0020
+                SWP_NOMOVE = 0x0002
+                SWP_NOSIZE = 0x0001
+                SWP_NOZORDER = 0x0004
+                ctypes.windll.user32.SetWindowPos(hwnd, 0, 0, 0, 0, 0, SWP_NOMOVE | SWP_NOSIZE | SWP_NOZORDER | SWP_FRAMECHANGED)
+            except Exception:
+                pass
+
+        self.root._windows_set_titlebar_color = _safe_windows_titlebar
 
     def activar_foco_inicial(self):
         self.root.focus_force()
         if hasattr(self, "entry_id"):
             self.entry_id.focus_force()
 
+    def obtener_icono_cacheado(self, nombre_archivo, color_hex, size=(28, 28)):
+        clave = (nombre_archivo, color_hex, size)
+        if clave in self._cache_iconos:
+            return self._cache_iconos[clave]
+
+        ruta = obtener_ruta_icono(nombre_archivo)
+        if os.path.exists(ruta) and HAS_PIL:
+            col_img = colorear_icono_png(ruta, color_hex)
+            if col_img:
+                ctk_i = ctk.CTkImage(light_image=col_img, dark_image=col_img, size=size)
+                self._cache_iconos[clave] = ctk_i
+                return ctk_i
+        return None
+
     def cargar_iconos_auxiliares(self):
         ruta_adv = obtener_ruta_icono("advertencia.png")
         if os.path.exists(ruta_adv) and HAS_PIL:
-            color = "#f59e0b" if self.modo_oscuro else "#d97706"
+            color = "#f59e0b"
             col_img = colorear_icono_png(ruta_adv, color)
             if col_img:
                 img_p = Image.new("RGBA", (32, 16), (0, 0, 0, 0))
@@ -202,7 +233,6 @@ class InventarioBienesApp:
         frame_logo_titulo = ctk.CTkFrame(self.frame_cintillo, fg_color="transparent")
         frame_logo_titulo.pack(side="left", padx=10, pady=2)
 
-        # Botón para desplegar el Menú Flotante
         self.btn_menu_trigger = ctk.CTkButton(
             frame_logo_titulo,
             text="☰  MENÚ",
@@ -216,7 +246,6 @@ class InventarioBienesApp:
         )
         self.btn_menu_trigger.pack(side="left", padx=(0, 10))
 
-        # Logo UNELLEZ
         if os.path.exists(ARCHIVO_LOGO) and HAS_PIL:
             try:
                 img_pil = Image.open(ARCHIVO_LOGO)
@@ -225,19 +254,16 @@ class InventarioBienesApp:
             except Exception:
                 pass
 
-        # Texto UNELLEZ
         ctk.CTkLabel(
             frame_logo_titulo, text="UNELLEZ",
             font=ctk.CTkFont(family="Georgia", size=21, weight="bold"), text_color="#FF6600"
         ).pack(side="left")
 
-        # Separador
         ctk.CTkLabel(
             frame_logo_titulo, text="|",
             font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"), text_color="#565D68"
         ).pack(side="left", padx=(10, 8))
 
-        # Lema con recorte automático de transparencia
         if os.path.exists(PATH_LEMA) and HAS_PIL:
             try:
                 img_lema_pil = Image.open(PATH_LEMA).convert("RGBA")
@@ -262,29 +288,43 @@ class InventarioBienesApp:
             except Exception as e:
                 print(f"Error cargando lema: {e}")
 
-        # Botón modo oscuro
         self.btn_modo_oscuro = ctk.CTkButton(
-            self.frame_cintillo, text="", width=36, height=36,
-            fg_color="#1e293b", hover_color="#334155", corner_radius=8,
+            self.frame_cintillo,
+            text=" ",
+            width=36,
+            height=36,
+            fg_color="#1e293b",
+            hover_color="#334155",
+            corner_radius=8,
             command=self.toggle_modo_oscuro,
         )
         self.btn_modo_oscuro.pack(side="right", padx=12, pady=6)
+        self.btn_modo_oscuro.focus_set = lambda: None
 
     def toggle_modo_oscuro(self):
+        if self._toggling_tema:
+            return
+        self._toggling_tema = True
+
         self.modo_oscuro = not self.modo_oscuro
         self.modo_actual = "oscuro" if self.modo_oscuro else "claro"
+
         ctk.set_appearance_mode("Dark" if self.modo_oscuro else "Light")
-        self.cargar_iconos_auxiliares()
         self.aplicar_tema_widgets()
 
-    # ================= CONTENEDOR PRINCIPAL FIJO (100% ESTABLE) =================
+        self.root.after(150, lambda: guardar_preferencia_tema(self.modo_actual))
+        self.root.after(200, self._liberar_toggle_tema)
+
+    def _liberar_toggle_tema(self):
+        self._toggling_tema = False
+
+    # ================= CONTENEDOR PRINCIPAL =================
     def crear_contenedor_principal(self):
         self.frame_cuerpo_general = ctk.CTkFrame(self.root, fg_color="transparent", corner_radius=0)
         self.frame_cuerpo_general.grid(row=1, column=0, sticky="nsew")
         self.frame_cuerpo_general.rowconfigure(0, weight=1)
         self.frame_cuerpo_general.columnconfigure(0, weight=1)
 
-        # 1. Vista de Inventario Principal (Ocupa el 100% de la pantalla de forma fija)
         self.vista_inventario = ctk.CTkFrame(self.frame_cuerpo_general, fg_color="transparent")
         self.vista_inventario.rowconfigure(3, weight=1)
         self.vista_inventario.columnconfigure(0, weight=1)
@@ -295,7 +335,6 @@ class InventarioBienesApp:
         self.crear_tabla(self.vista_inventario)
         self.crear_menu_contextual()
 
-        # 2. Vista de Traslado de Equipos
         self.vista_traslado = VistaTraslado(
             self.frame_cuerpo_general,
             obtener_bienes_callback=lambda: self.bienes,
@@ -306,9 +345,8 @@ class InventarioBienesApp:
 
         self.vista_inventario.grid(row=0, column=0, sticky="nsew")
 
-    # ================= MENÚ FLOTANTE PURO (SIN ERROR DE PLACE) =================
+    # ================= MENÚ FLOTANTE =================
     def crear_menu_flotante_drawer(self):
-        # En CustomTkinter, width y height se declaran AQUÍ en el constructor
         self.drawer = ctk.CTkFrame(
             self.frame_cuerpo_general,
             width=260,
@@ -320,7 +358,6 @@ class InventarioBienesApp:
         )
         self.drawer.pack_propagate(False)
 
-        # Cabecera del menú flotante
         f_head_drawer = ctk.CTkFrame(self.drawer, fg_color="transparent")
         f_head_drawer.pack(fill="x", padx=12, pady=(12, 8))
 
@@ -340,7 +377,6 @@ class InventarioBienesApp:
 
         ctk.CTkFrame(self.drawer, height=1, fg_color="#1e293b").pack(fill="x", padx=12, pady=(0, 10))
 
-        # Opciones de navegación
         self.btn_nav_inv = ctk.CTkButton(
             self.drawer, text="📦  Inventario Activo", font=ctk.CTkFont(size=12, weight="bold"),
             fg_color="#0284c7", hover_color="#0369a1", anchor="w", height=40,
@@ -369,7 +405,6 @@ class InventarioBienesApp:
         )
         self.btn_nav_resp.pack(fill="x", padx=12, pady=5)
 
-        # Pie institucional
         ctk.CTkLabel(
             self.drawer, text="SIGART V2.6 — UNELLEZ VIPI\nCoordinación CTSI",
             font=ctk.CTkFont(size=9), text_color="#64748b", justify="center"
@@ -383,7 +418,6 @@ class InventarioBienesApp:
 
     def abrir_menu_flotante(self):
         self.menu_abierto = True
-        # CORRECCIÓN: Solo se pasa x e y (width y height se toman del constructor)
         self.drawer.place(x=10, y=10)
         self.drawer.lift()
 
@@ -392,8 +426,7 @@ class InventarioBienesApp:
         self.drawer.place_forget()
 
     def detectar_clic_fuera_del_menu(self, event):
-        """Si el menú está abierto y el usuario hace clic afuera de él, se cierra solo."""
-        if not self.menu_abierto:
+        if not self.menu_abierto or not hasattr(self, "drawer"):
             return
         try:
             x, y = event.x_root, event.y_root
@@ -402,7 +435,6 @@ class InventarioBienesApp:
             dx2 = dx1 + self.drawer.winfo_width()
             dy2 = dy1 + self.drawer.winfo_height()
 
-            # Si el clic no fue dentro del menú ni en el botón que lo abre, cerrarlo
             btn_x1 = self.btn_menu_trigger.winfo_rootx()
             btn_y1 = self.btn_menu_trigger.winfo_rooty()
             btn_x2 = btn_x1 + self.btn_menu_trigger.winfo_width()
@@ -433,12 +465,11 @@ class InventarioBienesApp:
             self.btn_nav_doc.configure(fg_color="#0284c7")
             self.btn_nav_inv.configure(fg_color="transparent")
 
-    # ================= TARJETAS KPI (SIMÉTRICAS: EXACTO 20% CADA UNA) =================
+    # ================= TARJETAS KPI =================
     def crear_panel_metricas(self, parent):
         self.frame_kpis = ctk.CTkFrame(parent, fg_color="transparent")
         self.frame_kpis.grid(row=0, column=0, sticky="ew", padx=12, pady=(8, 4))
 
-        # 5 columnas idénticas
         for i in range(5):
             self.frame_kpis.columnconfigure(i, weight=1, uniform="kpi_col")
 
@@ -499,7 +530,7 @@ class InventarioBienesApp:
         self.tarjetas_widgets.append({
             "card": card, "check": lbl_check, "tit": lbl_tit, "icon": lbl_icon,
             "val": lbl_val, "sub": lbl_sub, "linea": linea, "clave": clave,
-            "ruta_png": obtener_ruta_icono(nombre_archivo_png)
+            "nombre_archivo": nombre_archivo_png
         })
         return lbl_val
 
@@ -518,7 +549,6 @@ class InventarioBienesApp:
         )
         lbl_titulo_seccion.grid(row=0, column=0, columnspan=6, padx=12, pady=(6, 2), sticky="w")
 
-        # Fila 1: ID y Asignado a
         ctk.CTkLabel(self.frame_form, text="ID Único:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=1, column=0, padx=(12, 5), pady=3, sticky="e")
         self.entry_id = ctk.CTkEntry(self.frame_form, font=("Segoe UI", 11), height=28)
         self.entry_id.grid(row=1, column=1, padx=5, pady=3, sticky="ew")
@@ -532,7 +562,6 @@ class InventarioBienesApp:
         self.combo_asignado = ctk.CTkOptionMenu(self.frame_form, values=opciones_asig, height=28)
         self.combo_asignado.grid(row=1, column=3, columnspan=3, padx=5, pady=3, sticky="ew")
 
-        # Botones del formulario
         f_btn = ctk.CTkFrame(self.frame_form, fg_color="transparent")
         f_btn.grid(row=1, column=6, rowspan=5, padx=(10, 12), pady=3, sticky="ns")
 
@@ -540,13 +569,11 @@ class InventarioBienesApp:
         ctk.CTkButton(f_btn, text="Guardar Cambios", fg_color="#059669", hover_color="#047857", font=ctk.CTkFont(size=11, weight="bold"), height=26, command=self.actualizar_bien).pack(fill="x", pady=2)
         ctk.CTkButton(f_btn, text="Limpiar Campos", fg_color="#475569", hover_color="#334155", font=ctk.CTkFont(size=11, weight="bold"), height=26, command=self.limpiar_formulario).pack(fill="x", pady=2)
 
-        # Fila 2: Tipo de Equipo
         ctk.CTkLabel(self.frame_form, text="Tipo de Equipo:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=2, column=0, padx=(12, 5), pady=3, sticky="e")
         self.combo_nombre = ctk.CTkOptionMenu(self.frame_form, values=TIPOS_ACTIVOS_VALIDOS, height=28, command=self.al_cambiar_tipo_activo)
         self.combo_nombre.set(TIPOS_ACTIVOS_VALIDOS[0])
         self.combo_nombre.grid(row=2, column=1, columnspan=5, padx=5, pady=3, sticky="ew")
 
-        # Fila 3: Mantenimiento, Fecha y Próximo
         ctk.CTkLabel(self.frame_form, text="Mantenimiento:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=3, column=0, padx=(12, 5), pady=3, sticky="e")
         self.combo_mant = ctk.CTkOptionMenu(self.frame_form, values=["No", "Sí (Preventivo)", "Sí (Correctivo)"], height=28)
         self.combo_mant.set("No")
@@ -570,12 +597,10 @@ class InventarioBienesApp:
         )
         self.entry_proximo.grid(row=3, column=5, padx=5, pady=3, sticky="ew")
 
-        # Fila 4: Observación
         ctk.CTkLabel(self.frame_form, text="Detalle / Observación:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=4, column=0, padx=(12, 5), pady=3, sticky="e")
         self.entry_desc_mant = ctk.CTkEntry(self.frame_form, font=("Segoe UI", 11), height=28)
         self.entry_desc_mant.grid(row=4, column=1, columnspan=5, padx=5, pady=3, sticky="ew")
 
-        # Fila 5: Badge y Acceso a Diagnóstico Técnico
         f_badge = ctk.CTkFrame(self.frame_form, fg_color="transparent")
         f_badge.grid(row=5, column=0, columnspan=6, padx=12, pady=(4, 6), sticky="ew")
 
@@ -588,20 +613,57 @@ class InventarioBienesApp:
         )
         self.lbl_estado_diagnostico.pack(padx=8, pady=4)
 
-        ctk.CTkButton(
+        self.btn_abrir_diagnostico = ctk.CTkButton(
             f_badge, text="🛠 Completar / Editar Diagnóstico Técnico",
             fg_color="#0284C7", hover_color="#0369a1", font=ctk.CTkFont(size=11, weight="bold"),
             height=28, command=self.abrir_modal_diagnostico
-        ).pack(side="right")
+        )
+        self.btn_abrir_diagnostico.pack(side="right")
 
         self.calcular_proxima_fecha_mantenimiento()
+        self.al_cambiar_tipo_activo(self.combo_nombre.get())
 
     def al_cambiar_tipo_activo(self, tipo=None):
         self.datos_tecnicos_temporales = None
-        self.actualizar_badge_diagnostico(es_completo=False)
+        tipo_actual = tipo or self.combo_nombre.get()
 
-    def actualizar_badge_diagnostico(self, es_completo=False, sin_seleccion=False):
-        if sin_seleccion:
+        # Si no se ha seleccionado un equipo válido
+        if tipo_actual == "Seleccione el equipo" or tipo_actual == TIPOS_ACTIVOS_VALIDOS[0]:
+            self.btn_abrir_diagnostico.configure(
+                state="normal",
+                fg_color="#0284C7",
+                hover_color="#0369a1",
+                text="🛠 Completar / Editar Diagnóstico Técnico"
+            )
+            self.actualizar_badge_diagnostico(sin_seleccion=True)
+
+        # Equipos exentos de diagnóstico modal
+        elif tipo_actual in TIPOS_SIN_DIAGNOSTICO:
+            self.btn_abrir_diagnostico.configure(
+                state="disabled",
+                fg_color="#64748b",
+                hover_color="#64748b",
+                text="🚫 Diagnóstico No Requerido"
+            )
+            self.actualizar_badge_diagnostico(no_aplica=True)
+
+        # Equipos que requieren diagnóstico (Laptop, Computadora de escritorio, Impresora)
+        else:
+            self.btn_abrir_diagnostico.configure(
+                state="normal",
+                fg_color="#0284C7",
+                hover_color="#0369a1",
+                text="🛠 Completar / Editar Diagnóstico Técnico"
+            )
+            self.actualizar_badge_diagnostico(es_completo=False)
+
+    def actualizar_badge_diagnostico(self, es_completo=False, sin_seleccion=False, no_aplica=False):
+        if no_aplica:
+            bg_c = "#1e293b" if self.modo_oscuro else "#f1f5f9"
+            border_c = "#64748b" if self.modo_oscuro else "#94a3b8"
+            text_c = "#94a3b8" if self.modo_oscuro else "#475569"
+            texto = "  DIAGNÓSTICO TÉCNICO: No Aplica (Detalle en Observación)  "
+        elif sin_seleccion:
             bg_c = "#1e293b" if self.modo_oscuro else "#e2e8f0"
             border_c = "#475569" if self.modo_oscuro else "#94a3b8"
             text_c = "#94a3b8" if self.modo_oscuro else "#475569"
@@ -705,8 +767,7 @@ class InventarioBienesApp:
         cols = ("id", "nombre", "asignado_a", "mantenimiento", "fecha_mant", "proximo_mant")
         self.tabla = ttk.Treeview(self.frame_tabla, columns=cols, show="tree headings")
 
-        # Encabezados
-        self.tabla.heading("#0", text="⚠️", anchor="center")
+        self.tabla.heading("#0", text="", anchor="center")
         self.tabla.heading("id", text="ID Activo", anchor="center")
         self.tabla.heading("nombre", text="Descripción / Equipo Tecnológico", anchor="w")
         self.tabla.heading("asignado_a", text="Asignado a / Área", anchor="w")
@@ -714,8 +775,7 @@ class InventarioBienesApp:
         self.tabla.heading("fecha_mant", text="Fecha Mant./Ingreso", anchor="center")
         self.tabla.heading("proximo_mant", text="Próx. Fecha Hábil (+3M)", anchor="center")
 
-        # Anchos proporcionales
-        self.tabla.column("#0", width=34, minwidth=34, anchor="center", stretch=False)
+        self.tabla.column("#0", width=20, minwidth=20, anchor="center", stretch=False)
         self.tabla.column("id", width=70, minwidth=55, anchor="center", stretch=False)
         self.tabla.column("nombre", width=260, minwidth=180, anchor="w", stretch=True)
         self.tabla.column("asignado_a", width=185, minwidth=150, anchor="w", stretch=False)
@@ -895,7 +955,6 @@ class InventarioBienesApp:
                 "incluye_perifericos": False,
                 "cpu": {
                     "estado": "Operativo al 100%",
-                    "detalle": "En buen estado operativo",
                     "componentes_internos": {
                         "placa_madre": "Operativo", "procesador": "Operativo",
                         "memoria_ram": "Operativo", "disco_duro": "Operativo", "fuente_poder": "Operativo"
@@ -918,8 +977,8 @@ class InventarioBienesApp:
                 "copia": {"estado": "Operativa", "detalle": "Operativo"},
                 "scanner": {"estado": "Operativa", "detalle": "Operativo"}
             }
-        elif tipo_activo in ["Router", "Switch de red"]:
-            return {"marca": "Cisco / TP-Link", "modelo": "Estándar", "estado_general": "Funcional", "detalle_falla": ""}
+        elif tipo_activo in TIPOS_SIN_DIAGNOSTICO:
+            return {}
         return {}
 
     def limpiar_formulario(self):
@@ -930,7 +989,7 @@ class InventarioBienesApp:
         self.entry_fecha_mant.insert(0, date.today().strftime("%d/%m/%Y"))
         self.combo_mant.set("No")
         self.datos_tecnicos_temporales = None
-        self.actualizar_badge_diagnostico(sin_seleccion=True)
+        self.al_cambiar_tipo_activo(TIPOS_ACTIVOS_VALIDOS[0])
         self.calcular_proxima_fecha_mantenimiento()
         self.entry_id.focus_force()
 
@@ -961,11 +1020,16 @@ class InventarioBienesApp:
         self.calcular_proxima_fecha_mantenimiento()
 
         self.datos_tecnicos_temporales = bien.get("detalles_tecnicos") or bien.get("perifericos") or {}
-        es_comp = verificar_informacion_completa(bien)
-        self.actualizar_badge_diagnostico(es_completo=es_comp)
+
+        self.al_cambiar_tipo_activo(nom)
+        if nom not in TIPOS_SIN_DIAGNOSTICO:
+            es_comp = verificar_informacion_completa(bien)
+            self.actualizar_badge_diagnostico(es_completo=es_comp)
 
     def abrir_modal_diagnostico(self):
         tipo = self.combo_nombre.get()
+        if tipo in TIPOS_SIN_DIAGNOSTICO:
+            return
         if tipo == "Seleccione el equipo":
             messagebox.showwarning("Selección Requerida", "Seleccione un tipo de equipo válido antes de diagnosticar.")
             return
@@ -1144,55 +1208,47 @@ class InventarioBienesApp:
             card_info["sub"].configure(text_color=est["color_sub"])
             card_info["linea"].configure(fg_color=color_ac)
 
-            ruta = card_info.get("ruta_png", "")
-            if os.path.exists(ruta) and HAS_PIL:
-                col_img = colorear_icono_png(ruta, color_ac)
-                if col_img:
-                    ctk_i = ctk.CTkImage(light_image=col_img, dark_image=col_img, size=(28, 28))
-                    card_info["icon"].configure(image=ctk_i, text="")
-                else:
-                    card_info["icon"].configure(text="•", text_color=color_ac)
+            nombre_archivo = card_info.get("nombre_archivo", "")
+            ctk_i = self.obtener_icono_cacheado(nombre_archivo, color_ac, size=(28, 28))
+            if ctk_i:
+                card_info["icon"].configure(image=ctk_i, text="")
+            else:
+                card_info["icon"].configure(text="•", text_color=color_ac)
 
     def aplicar_tema_widgets(self):
-        pal = self.PALETA["oscuro" if self.modo_oscuro else "claro"]
-        guardar_preferencia_tema(self.modo_actual)
+        t = "oscuro" if self.modo_oscuro else "claro"
+        pal = self.PALETA[t]
 
-        # Botón de modo oscuro
         if hasattr(self, "btn_modo_oscuro"):
             archivo = "tema_claro.png" if self.modo_oscuro else "tema_oscuro.png"
             color_i = "#FFFFFF" if self.modo_oscuro else "#F8FAFC"
-            ruta = obtener_ruta_icono(archivo)
-            if os.path.exists(ruta) and HAS_PIL:
-                col_i = colorear_icono_png(ruta, color_i)
-                if col_i:
-                    ctk_img = ctk.CTkImage(light_image=col_i, dark_image=col_i, size=(18, 18))
-                    self.btn_modo_oscuro.configure(image=ctk_img, text="", fg_color="#d97706" if self.modo_oscuro else "#1e293b")
+            ctk_img = self.obtener_icono_cacheado(archivo, color_i, (18, 18))
+            if ctk_img:
+                self.btn_modo_oscuro.configure(image=ctk_img, text=" ", fg_color="#d97706" if self.modo_oscuro else "#1e293b")
 
-        # Color del panel flotante
         if hasattr(self, "drawer"):
             self.drawer.configure(fg_color="#0b1324" if self.modo_oscuro else "#0f172a")
 
         self.actualizar_estilo_tarjetas_kpi()
 
-        # Fix de color de fondo para el campo 'proximo'
         if hasattr(self, "entry_proximo"):
             self.entry_proximo.configure(
                 fg_color=("#ffffff", "#090d16"),
                 text_color=("#0f172a", "#f8fafc")
             )
-            self.calcular_proxima_fecha_mantenimiento()
 
-        # Diagnóstico badge
         if hasattr(self, "badge_diagnostico"):
-            if not self.entry_id.get().strip():
+            nom_actual = self.combo_nombre.get() if hasattr(self, "combo_nombre") else ""
+            if nom_actual == "Seleccione el equipo" or nom_actual == TIPOS_ACTIVOS_VALIDOS[0] or not self.entry_id.get().strip():
                 self.actualizar_badge_diagnostico(sin_seleccion=True)
+            elif nom_actual in TIPOS_SIN_DIAGNOSTICO:
+                self.actualizar_badge_diagnostico(no_aplica=True)
             else:
                 comp = False
                 if self.datos_tecnicos_temporales:
-                    comp = verificar_informacion_completa({"nombre": self.combo_nombre.get(), "detalles_tecnicos": self.datos_tecnicos_temporales})
+                    comp = verificar_informacion_completa({"nombre": nom_actual, "detalles_tecnicos": self.datos_tecnicos_temporales})
                 self.actualizar_badge_diagnostico(es_completo=comp)
 
-        # Treeview styling
         if hasattr(self, "tabla"):
             style = ttk.Style()
             style.theme_use("clam")
@@ -1222,7 +1278,6 @@ class InventarioBienesApp:
 
             self.tabla.tag_configure("par", background=tree_bg, foreground=tree_fg)
             self.tabla.tag_configure("impar", background=tree_bg_odd, foreground=tree_fg)
-            self.actualizar_tabla()
 
 
 os.chdir(obtener_ruta_base())

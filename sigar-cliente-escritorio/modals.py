@@ -4,7 +4,7 @@ Módulo de Ventanas Modales y Popups - SIGART UNELLEZ VIPI
 Incluye:
 - VentanaDesincorporados: Histórico y reincorporación de bajas.
 - VentanaRespaldos: Copias de seguridad locales y en la nube.
-- VentanaDiagnosticoTecnico: Evaluación modular previa por componentes.
+- VentanaDiagnosticoTecnico: Evaluación modular previa por componentes con scroll.
 - VentanaFichaTecnica: Consulta estética y detallada del activo.
 """
 import os
@@ -166,7 +166,7 @@ class VentanaDesincorporados(ctk.CTkToplevel):
         item = self.tabla.item(sel[0])
         id_bien = int(item["values"][0])
 
-        if messagebox.askyesno("Confirmar", f"¿Desea reincorporar el activo ID {id_bien} al inventario activo?", parent=self):
+        if messagebox.askyesno("Confirmar", f"¿Desea reincorporar el activo ID #{id_bien} al inventario activo?", parent=self):
             exito, msj = restaurar_baja_local(id_bien)
             if exito:
                 messagebox.showinfo("Éxito", msj, parent=self)
@@ -299,7 +299,7 @@ class VentanaRespaldos(ctk.CTkToplevel):
 # MODAL: EVALUACIÓN / DIAGNÓSTICO TÉCNICO
 # =========================================================================
 class VentanaDiagnosticoTecnico:
-    """Ventana modal para diagnóstico técnico con flujo de CPU y periféricos."""
+    """Ventana modal para diagnóstico técnico con flujo de componentes adaptativo."""
 
     def __init__(self, parent, tipo_activo, paleta, modo_oscuro, datos_previos=None, guardar_callback=None):
         self.parent = parent
@@ -314,14 +314,14 @@ class VentanaDiagnosticoTecnico:
 
         self.modal = tk.Toplevel(parent)
         self.modal.title(f"Diagnóstico Técnico Especializado — {tipo_activo}")
-        self.modal.geometry("780x480")
+        self.modal.geometry("780x500")
         self.modal.minsize(720, 420)
         self.modal.resizable(True, True)
         self.modal.configure(bg=pal["bg_root"])
         self.modal.transient(parent)
         self.modal.grab_set()
 
-        # Centrar en pantalla
+        # Centrar ventana modal
         self.modal.update_idletasks()
         w, h = self.modal.winfo_width(), self.modal.winfo_height()
         x = (self.modal.winfo_screenwidth() // 2) - (w // 2)
@@ -342,8 +342,25 @@ class VentanaDiagnosticoTecnico:
             bg="#0284c7", fg="white", bd=0, padx=12, pady=5, cursor="hand2", command=self.aplicar_preset
         ).pack(side="right")
 
-        self.frame_dinamico = tk.Frame(self.modal, bg=pal["bg_panel"], highlightthickness=1, highlightbackground=pal["border_panel"])
-        self.frame_dinamico.pack(fill="both", expand=True, padx=15, pady=6)
+        # Lienzo desplazable (Scrollable Canvas) para subformularios extensos
+        f_container = tk.Frame(self.modal, bg=pal["bg_panel"], highlightthickness=1, highlightbackground=pal["border_panel"])
+        f_container.pack(fill="both", expand=True, padx=15, pady=6)
+
+        canvas = tk.Canvas(f_container, bg=pal["bg_panel"], highlightthickness=0)
+        scrollbar = ttk.Scrollbar(f_container, orient="vertical", command=canvas.yview)
+        
+        self.frame_dinamico = tk.Frame(canvas, bg=pal["bg_panel"])
+        window_id = canvas.create_window((0, 0), window=self.frame_dinamico, anchor="nw")
+
+        def _on_canvas_configure(e):
+            canvas.itemconfig(window_id, width=canvas.winfo_width())
+
+        canvas.bind("<Configure>", _on_canvas_configure)
+        self.frame_dinamico.bind("<Configure>", lambda e: canvas.configure(scrollregion=canvas.bbox("all")))
+        canvas.configure(yscrollcommand=scrollbar.set)
+
+        canvas.pack(side="left", fill="both", expand=True)
+        scrollbar.pack(side="right", fill="y")
 
         self.subform_widgets = construir_subformulario_dinamico(
             self.frame_dinamico,
@@ -411,7 +428,7 @@ class VentanaFichaTecnica:
         id_bien = self.bien.get("id", "N/A")
         detalles = self.bien.get("detalles_tecnicos") or self.bien.get("perifericos") or {}
 
-        # Cabecera
+        # Cabecera Institucional
         f_head = tk.Frame(self.modal, bg=pal["bg_cintillo"], padx=15, pady=10)
         f_head.pack(fill="x")
         tk.Label(
@@ -423,7 +440,7 @@ class VentanaFichaTecnica:
             font=("Segoe UI", 9), fg="#93c5fd", bg=pal["bg_cintillo"]
         ).pack(anchor="w")
 
-        # Contenedor con Scrollbar
+        # Contenedor principal con scrollbar
         f_body = tk.Frame(self.modal, bg=pal["bg_root"])
         f_body.pack(fill="both", expand=True, padx=15, pady=10)
 
@@ -444,38 +461,65 @@ class VentanaFichaTecnica:
         canvas.pack(side="left", fill="both", expand=True)
         sc.pack(side="right", fill="y")
 
-        # Observación previa
+        # Observación principal de registro
         obs_gen = self.bien.get("desc_mant", "").strip()
         if obs_gen:
             f_obs = tk.LabelFrame(sf, text=" Observación de Registro ", font=("Segoe UI", 8, "bold"), fg="#38bdf8" if self.modo_oscuro else "#0284c7", bg=pal["bg_panel"], padx=8, pady=6)
             f_obs.pack(fill="x", padx=10, pady=8)
             tk.Label(f_obs, text=obs_gen, font=("Segoe UI", 9, "italic"), bg=pal["bg_panel"], fg=pal["fg_texto"], justify="left", wraplength=460).pack(anchor="w")
 
-        # Desglose Técnico
-        if not detalles:
+        # Desglose Técnico por Tipo de Activo
+        if tipo in ["Router", "Switch de red", "Escáner", "Monitor"]:
+            f_net = tk.Frame(
+                sf,
+                bg="#0f172a" if self.modo_oscuro else "#f8fafc",
+                padx=12,
+                pady=10,
+                highlightthickness=1,
+                highlightbackground="#38bdf8" if self.modo_oscuro else "#0284c7"
+            )
+            f_net.pack(fill="x", padx=10, pady=8)
+            tk.Label(
+                f_net,
+                text=f"ℹ {tipo}: No requiere diagnóstico técnico modal.",
+                font=("Segoe UI", 9, "bold"),
+                fg="#38bdf8" if self.modo_oscuro else "#0284c7",
+                bg="#0f172a" if self.modo_oscuro else "#f8fafc"
+            ).pack(anchor="w")
+            tk.Label(
+                f_net,
+                text="Los detalles específicos y el estado técnico se registran en la Observación de Registro superior.",
+                font=("Segoe UI", 8),
+                fg=pal["fg_subtexto"],
+                bg="#0f172a" if self.modo_oscuro else "#f8fafc"
+            ).pack(anchor="w", pady=(2, 0))
+
+        elif not detalles:
             tk.Label(sf, text="Este activo no posee detalles técnicos registrados.", font=("Segoe UI", 9), bg=pal["bg_panel"], fg=pal["fg_subtexto"]).pack(pady=30)
+
         else:
             if tipo == "Computadora de escritorio":
                 incluye_p = es_verdadero(detalles.get("incluye_perifericos", False))
                 
-                # Banner de modalidad
+                # Banner de modalidad de entrega
                 f_mod = tk.Frame(sf, bg="#064e3b" if incluye_p else "#451a03", padx=8, pady=6)
                 f_mod.pack(fill="x", padx=10, pady=6)
                 txt_mod = "✔ Combo Completo: Incluye Torre/CPU y Periféricos Vinculados" if incluye_p else "ℹ Chasis Individual: Registrado estrictamente como Torre/CPU (Sin Periféricos)"
                 col_mod = "#6ee7b7" if incluye_p else "#fde047"
                 tk.Label(f_mod, text=txt_mod, font=("Segoe UI", 9, "bold"), fg=col_mod, bg="#064e3b" if incluye_p else "#451a03").pack(anchor="w")
 
-                # CPU y Componentes
+                # Estado de la Torre / CPU
                 cpu_dat = detalles.get("cpu", {})
-                self.crear_item_detalle(sf, "Torre / CPU Principal", cpu_dat.get("estado", "Operativo"), cpu_dat.get("detalle", ""))
+                self.crear_item_detalle(sf, "Torre / CPU Principal", cpu_dat.get("estado", "Operativo"), "")
 
+                # Componentes Internos
                 comp_int = cpu_dat.get("componentes_internos", {})
                 if comp_int:
                     f_int = tk.Frame(sf, bg=pal["bg_panel"], padx=10, pady=4)
                     f_int.pack(fill="x", padx=10)
                     tk.Label(f_int, text="Componentes Internos:", font=("Segoe UI", 8, "bold"), fg=pal["fg_texto"], bg=pal["bg_panel"]).pack(anchor="w")
                     for k_c, v_c in comp_int.items():
-                        c_col = "#16a34a" if "Operativ" in v_c else "#dc2626"
+                        c_col = "#16a34a" if "Operativ" in v_c else ("#ca8a04" if "Falla" in v_c else "#dc2626")
                         tk.Label(f_int, text=f"  • {k_c.replace('_', ' ').capitalize()}: {v_c}", font=("Segoe UI", 8), fg=c_col, bg=pal["bg_panel"]).pack(anchor="w")
 
                 if incluye_p:
@@ -486,25 +530,14 @@ class VentanaFichaTecnica:
             elif tipo == "Laptop":
                 for k_l, lbl_l in [("pantalla", "Pantalla"), ("teclado", "Teclado"), ("mouse_touchpad", "Mouse/Touchpad"), ("carcasa_puertos", "Carcasa y Puertos")]:
                     dat_l = detalles.get(k_l, {})
-                    self.crear_item_detalle(sf, lbl_l, dat_l.get("estado", "Operativo"), dat_l.get("detalle", ""))
+                    self.crear_item_detalle(sf, lbl_l, dat_l.get("estado", "Operativa"), dat_l.get("detalle", ""))
 
             elif tipo == "Impresora":
                 for k_i, lbl_i in [("impresion", "Impresión Simple"), ("copia", "Función Copiado"), ("scanner", "Función Escáner")]:
                     dat_i = detalles.get(k_i, {})
                     self.crear_item_detalle(sf, lbl_i, dat_i.get("estado", "Operativa"), dat_i.get("detalle", ""))
 
-            elif tipo in ["Router", "Switch de red"]:
-                f_r = tk.Frame(sf, bg=pal["bg_panel"], padx=10, pady=8)
-                f_r.pack(fill="x", padx=10)
-                tk.Label(f_r, text=f"• Marca: {detalles.get('marca', 'N/A')}", font=("Segoe UI", 9, "bold"), fg=pal["fg_texto"], bg=pal["bg_panel"]).pack(anchor="w")
-                tk.Label(f_r, text=f"• Modelo: {detalles.get('modelo', 'N/A')}", font=("Segoe UI", 9, "bold"), fg=pal["fg_texto"], bg=pal["bg_panel"]).pack(anchor="w")
-                est_r = detalles.get("estado_general", "Funcional")
-                col_r = "#16a34a" if est_r == "Funcional" else ("#ca8a04" if est_r == "Funcional con fallas" else "#dc2626")
-                tk.Label(f_r, text=f"• Estado General: {est_r}", font=("Segoe UI", 9, "bold"), fg=col_r, bg=pal["bg_panel"]).pack(anchor="w", pady=2)
-                if detalles.get("detalle_falla"):
-                    tk.Label(f_r, text=f"• Falla: {detalles.get('detalle_falla')}", font=("Segoe UI", 8, "italic"), fg="#dc2626", bg=pal["bg_panel"]).pack(anchor="w")
-
-        # Botón Cerrar
+        # Botón para cerrar
         f_bot = tk.Frame(self.modal, bg=pal["bg_root"])
         f_bot.pack(fill="x", pady=(0, 10))
         tk.Button(
@@ -524,5 +557,5 @@ class VentanaFichaTecnica:
         color_est = "#16a34a" if ("Operativ" in estado or "Sin daños" in estado) else ("#dc2626" if "Dañad" in estado else "#ca8a04")
         tk.Label(header, text=f" [{estado}]", font=("Segoe UI", 9, "bold"), fg=color_est, bg=pal["bg_panel"]).pack(side="left", padx=4)
 
-        if detalle:
+        if detalle and detalle.strip():
             tk.Label(f, text=f"  Obs: {detalle}", font=("Segoe UI", 8, "italic"), fg=pal["fg_subtexto"], bg=pal["bg_panel"]).pack(anchor="w", padx=14)

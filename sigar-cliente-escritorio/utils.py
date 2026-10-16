@@ -51,14 +51,16 @@ except ImportError:
     HAS_REPORTLAB = False
 
 
-TIPOS_ACTIVOS_VALIDOS = [
+TIPOS_ACTIVOS_VALIDOS = (
     "Seleccione el equipo",
     "Laptop",
     "Computadora de escritorio",
     "Impresora",
     "Router",
-    "Switch de red"
-]
+    "Switch de red",
+    "Escáner",
+    "Monitor",
+)
 
 
 def es_verdadero(val):

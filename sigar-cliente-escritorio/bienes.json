@@ -1,21 +1,61 @@
 [
     {
         "id": 1,
-        "nombre": "Laptop Dell Latitude 3420 Core i7 32GB RAM SSD 512GB",
+        "nombre": "Laptop",
         "asignado_a": "Administración",
         "mantenimiento": "Sí (Preventivo)",
         "fecha_mant": "15/05/2026",
         "proximo_mant": "17/08/2026",
-        "desc_mant": "Limpieza general y cambio de pasta térmica"
+        "desc_mant": "Limpieza general y cambio de pasta térmica",
+        "detalles_tecnicos": {
+            "tipo": "Laptop",
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse_touchpad": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": "En buen estado operativo"
+            }
+        },
+        "perifericos": {
+            "tipo": "Laptop",
+            "pantalla": {
+                "estado": "Operativa",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse_touchpad": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "carcasa_puertos": {
+                "estado": "Sin daños",
+                "detalle": "En buen estado operativo"
+            }
+        }
     },
     {
         "id": 2,
-        "nombre": "Monitor LED 24 LG Full HD IPS",
+        "nombre": "Monitor",
         "asignado_a": "Administración",
         "mantenimiento": "No",
-        "fecha_mant": "N/A",
-        "proximo_mant": "N/A",
-        "desc_mant": "Operativo sin novedades"
+        "fecha_mant": "05/12/2026",
+        "proximo_mant": "05/03/2027",
+        "desc_mant": "Operativo sin novedades",
+        "detalles_tecnicos": {},
+        "perifericos": {}
     },
     {
         "id": 3,
@@ -111,12 +151,14 @@
     },
     {
         "id": 5,
-        "nombre": "Switch TP-Link 24 Puertos Gigabit Rackeable",
+        "nombre": "Switch de red",
         "asignado_a": "Departamento de Sistemas",
         "mantenimiento": "Sí (Preventivo)",
         "fecha_mant": "01/07/2026",
         "proximo_mant": "01/10/2026",
-        "desc_mant": "Mantenimiento preventivo de puertos y soplado de polvo"
+        "desc_mant": "Mantenimiento preventivo de puertos y soplado de polvo",
+        "detalles_tecnicos": {},
+        "perifericos": {}
     },
     {
         "id": 6,
@@ -219,21 +261,25 @@
     },
     {
         "id": 9,
-        "nombre": "Servidor Dell PowerEdge R440 Xeon 32GB RAM",
+        "nombre": "Switch de red",
         "asignado_a": "Departamento de Sistemas",
         "mantenimiento": "Sí (Preventivo)",
         "fecha_mant": "15/09/2026",
         "proximo_mant": "15/12/2026",
-        "desc_mant": "Actualización de firmware y verificación de arreglos RAID"
+        "desc_mant": "Actualización de firmware y verificación de arreglos RAID",
+        "detalles_tecnicos": {},
+        "perifericos": {}
     },
     {
         "id": 10,
-        "nombre": "Escáner Fujitsu ScanSnap iX1600 Dúplex",
+        "nombre": "Escáner",
         "asignado_a": "Control de Estudios",
         "mantenimiento": "No",
-        "fecha_mant": "N/A",
-        "proximo_mant": "N/A",
-        "desc_mant": "Uso continuo diario"
+        "fecha_mant": "12/02/2026",
+        "proximo_mant": "12/05/2026",
+        "desc_mant": "Uso continuo diario",
+        "detalles_tecnicos": {},
+        "perifericos": {}
     },
     {
         "id": 11,
@@ -242,7 +288,21 @@
         "mantenimiento": "Sí (Preventivo)",
         "fecha_mant": "05/05/2026",
         "proximo_mant": "05/08/2026",
-        "desc_mant": "Respaldo de reglas de firewall y RouterOS"
+        "desc_mant": "Respaldo de reglas de firewall y RouterOS",
+        "detalles_tecnicos": {
+            "tipo": "Router",
+            "marca": "",
+            "modelo": "",
+            "estado_general": "Funcional",
+            "detalle_falla": ""
+        },
+        "perifericos": {
+            "tipo": "Router",
+            "marca": "",
+            "modelo": "",
+            "estado_general": "Funcional",
+            "detalle_falla": ""
+        }
     },
     {
         "id": 12,
@@ -337,35 +397,64 @@
         }
     },
     {
-        "id": 14,
-        "nombre": "Teclado y Mouse Inalámbrico Logitech MK270",
-        "asignado_a": "Rectorado",
-        "mantenimiento": "No",
-        "fecha_mant": "N/A",
-        "proximo_mant": "N/A",
-        "desc_mant": "En servicio activo"
-    },
-    {
         "id": 21,
         "nombre": "Computadora de escritorio",
         "asignado_a": "Coordinación de Docencia",
         "mantenimiento": "No",
-        "fecha_mant": "N/A",
-        "proximo_mant": "N/A",
-        "desc_mant": "",
+        "fecha_mant": "21/05/2025",
+        "proximo_mant": "21/08/2025",
+        "desc_mant": "poipi",
         "detalles_tecnicos": {
             "tipo": "Computadora de escritorio",
-            "incluye_perifericos": false,
+            "incluye_perifericos": true,
             "cpu": {
                 "estado": "Operativo al 100%",
+                "detalle": "En buen estado operativo",
+                "componentes_internos": {
+                    "placa_madre": "Operativo",
+                    "procesador": "Operativo",
+                    "memoria_ram": "Operativo",
+                    "disco_duro": "Operativo",
+                    "fuente_poder": "Operativo"
+                }
+            },
+            "monitor": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse": {
+                "estado": "Operativo",
                 "detalle": "En buen estado operativo"
             }
         },
         "perifericos": {
             "tipo": "Computadora de escritorio",
-            "incluye_perifericos": false,
+            "incluye_perifericos": true,
             "cpu": {
                 "estado": "Operativo al 100%",
+                "detalle": "En buen estado operativo",
+                "componentes_internos": {
+                    "placa_madre": "Operativo",
+                    "procesador": "Operativo",
+                    "memoria_ram": "Operativo",
+                    "disco_duro": "Operativo",
+                    "fuente_poder": "Operativo"
+                }
+            },
+            "monitor": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "teclado": {
+                "estado": "Operativo",
+                "detalle": "En buen estado operativo"
+            },
+            "mouse": {
+                "estado": "Operativo",
                 "detalle": "En buen estado operativo"
             }
         }
@@ -375,8 +464,8 @@
         "nombre": "Impresora",
         "asignado_a": "Departamento de Sistemas",
         "mantenimiento": "No",
-        "fecha_mant": "N/A",
-        "proximo_mant": "N/A",
+        "fecha_mant": "01/05/2026",
+        "proximo_mant": "03/08/2026",
         "desc_mant": "",
         "detalles_tecnicos": {
             "impresion": {
