@@ -1,7 +1,8 @@
 # -*- coding: utf-8 -*-
 """
 Módulo Principal de la Aplicación SIGART - UNELLEZ VIPI
-Controlador de interfaz gráfica, barra lateral desplegable, persistencia de fechas y gestión CRUD.
+Controlador de interfaz gráfica con Menú Flotante (Drawer Overlay) sobre el contenido.
+Elimina al 100% la pantalla negra, los parpadeos y los recálculos de geometría.
 """
 import ctypes
 import os
@@ -130,7 +131,7 @@ class InventarioBienesApp:
         self.root = root
         self.root.title("SIGART (UNELLEZ VIPI) - Sistema de Inventario y Gestión de Activos")
         self.root.geometry("1180x740")
-        self.root.minsize(920, 600)
+        self.root.minsize(940, 620)
 
         self.modo_actual = cargar_preferencia_tema()
         self.modo_oscuro = self.modo_actual == "oscuro"
@@ -139,7 +140,7 @@ class InventarioBienesApp:
         self.filtro_metrica_activa = "TODOS"
         self.datos_tecnicos_temporales = None
         self.imagenes_tabla_ref = []
-        self.sidebar_expandido = True
+        self.menu_abierto = False
 
         try:
             self.root.state("zoomed")
@@ -148,7 +149,7 @@ class InventarioBienesApp:
 
         self.root.columnconfigure(0, weight=1)
         self.root.rowconfigure(0, weight=0)  # Cintillo
-        self.root.rowconfigure(1, weight=1)  # Cuerpo Principal (Sidebar + Vistas)
+        self.root.rowconfigure(1, weight=1)  # Contenedor Maestro
         self.root.rowconfigure(2, weight=0)  # Pie de página
 
         self.PALETA = PALETA
@@ -160,10 +161,14 @@ class InventarioBienesApp:
         self.cargar_iconos_auxiliares()
 
         self.crear_cintillo_institucional()
-        self.crear_contenedor_con_sidebar()
+        self.crear_contenedor_principal()
+        self.crear_menu_flotante_drawer()
         self.crear_panel_acciones()
 
         self.aplicar_tema_widgets()
+
+        # Detector de clics para cerrar el menú si se hace clic afuera
+        self.root.bind("<Button-1>", self.detectar_clic_fuera_del_menu, add="+")
 
         self.recargar_datos_completos()
         self.root.after(200, self.activar_foco_inicial)
@@ -195,14 +200,28 @@ class InventarioBienesApp:
         self.frame_cintillo.pack_propagate(False)
 
         frame_logo_titulo = ctk.CTkFrame(self.frame_cintillo, fg_color="transparent")
-        frame_logo_titulo.pack(side="left", padx=12, pady=2)
+        frame_logo_titulo.pack(side="left", padx=10, pady=2)
+
+        # Botón para desplegar el Menú Flotante
+        self.btn_menu_trigger = ctk.CTkButton(
+            frame_logo_titulo,
+            text="☰  MENÚ",
+            font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
+            width=85,
+            height=34,
+            fg_color="#002B49",
+            hover_color="#034b7f",
+            corner_radius=6,
+            command=self.toggle_menu_flotante
+        )
+        self.btn_menu_trigger.pack(side="left", padx=(0, 10))
 
         # Logo UNELLEZ
         if os.path.exists(ARCHIVO_LOGO) and HAS_PIL:
             try:
                 img_pil = Image.open(ARCHIVO_LOGO)
-                self.logo_img = ctk.CTkImage(light_image=img_pil, dark_image=img_pil, size=(32, 32))
-                ctk.CTkLabel(frame_logo_titulo, image=self.logo_img, text="").pack(side="left", padx=(0, 8))
+                self.logo_img = ctk.CTkImage(light_image=img_pil, dark_image=img_pil, size=(30, 30))
+                ctk.CTkLabel(frame_logo_titulo, image=self.logo_img, text="").pack(side="left", padx=(0, 6))
             except Exception:
                 pass
 
@@ -216,21 +235,20 @@ class InventarioBienesApp:
         ctk.CTkLabel(
             frame_logo_titulo, text="|",
             font=ctk.CTkFont(family="Segoe UI", size=22, weight="bold"), text_color="#565D68"
-        ).pack(side="left", padx=(12, 10))
+        ).pack(side="left", padx=(10, 8))
 
-        # Lema con recorte automático de transparencia para tamaño grande y nítido
+        # Lema con recorte automático de transparencia
         if os.path.exists(PATH_LEMA) and HAS_PIL:
             try:
                 img_lema_pil = Image.open(PATH_LEMA).convert("RGBA")
-                # Elimina los márgenes vacíos transparentes para enfocar solo el texto dorado
                 bbox = img_lema_pil.getbbox()
                 if bbox:
                     img_lema_pil = img_lema_pil.crop(bbox)
-                    target_height = 24  # Tamaño aumentado real del texto
+                    target_height = 24
                     aspect_ratio = img_lema_pil.width / img_lema_pil.height
                     target_width = int(target_height * aspect_ratio)
                 else:
-                    target_height = 160
+                    target_height = 140
                     aspect_ratio = img_lema_pil.width / img_lema_pil.height
                     target_width = int(target_height * aspect_ratio)
 
@@ -240,7 +258,7 @@ class InventarioBienesApp:
                     size=(target_width, target_height)
                 )
                 lbl_lema = ctk.CTkLabel(frame_logo_titulo, image=self.img_lema_oro, text="")
-                lbl_lema.pack(side="left", padx=(4, 0), pady=0)
+                lbl_lema.pack(side="left", padx=(2, 0), pady=0)
             except Exception as e:
                 print(f"Error cargando lema: {e}")
 
@@ -259,63 +277,15 @@ class InventarioBienesApp:
         self.cargar_iconos_auxiliares()
         self.aplicar_tema_widgets()
 
-    # ================= SIDEBAR + VISTAS =================
-    def crear_contenedor_con_sidebar(self):
+    # ================= CONTENEDOR PRINCIPAL FIJO (100% ESTABLE) =================
+    def crear_contenedor_principal(self):
         self.frame_cuerpo_general = ctk.CTkFrame(self.root, fg_color="transparent", corner_radius=0)
         self.frame_cuerpo_general.grid(row=1, column=0, sticky="nsew")
         self.frame_cuerpo_general.rowconfigure(0, weight=1)
-        self.frame_cuerpo_general.columnconfigure(1, weight=1)
+        self.frame_cuerpo_general.columnconfigure(0, weight=1)
 
-        # Barra Lateral
-        self.frame_sidebar = ctk.CTkFrame(self.frame_cuerpo_general, width=200, corner_radius=0, fg_color="#0b1324" if self.modo_oscuro else "#0f172a")
-        self.frame_sidebar.grid(row=0, column=0, sticky="nsew")
-        self.frame_sidebar.pack_propagate(False)
-
-        # Botón Alternar (Toggle) Sidebar
-        self.btn_toggle_sidebar = ctk.CTkButton(
-            self.frame_sidebar, text="☰  COLAPSAR", font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color="transparent", hover_color="#1e293b", anchor="w",
-            command=self.toggle_sidebar
-        )
-        self.btn_toggle_sidebar.pack(fill="x", padx=6, pady=(10, 15))
-
-        # Botones de navegación
-        self.btn_nav_inv = ctk.CTkButton(
-            self.frame_sidebar, text="📦  Inventario Activo", font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color="#0284c7", hover_color="#0369a1", anchor="w", height=36,
-            command=lambda: self.mostrar_vista("inventario")
-        )
-        self.btn_nav_inv.pack(fill="x", padx=6, pady=4)
-
-        self.btn_nav_doc = ctk.CTkButton(
-            self.frame_sidebar, text="📄  Acta de Traslado", font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color="transparent", hover_color="#1e293b", anchor="w", height=36,
-            command=lambda: self.mostrar_vista("traslado")
-        )
-        self.btn_nav_doc.pack(fill="x", padx=6, pady=4)
-
-        self.btn_nav_bajas = ctk.CTkButton(
-            self.frame_sidebar, text="❌  Activos de Baja", font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color="transparent", hover_color="#1e293b", anchor="w", height=36,
-            command=self.mostrar_ventana_desincorporados
-        )
-        self.btn_nav_bajas.pack(fill="x", padx=6, pady=4)
-
-        self.btn_nav_respaldos = ctk.CTkButton(
-            self.frame_sidebar, text="💾  Centro Respaldos", font=ctk.CTkFont(size=11, weight="bold"),
-            fg_color="transparent", hover_color="#1e293b", anchor="w", height=36,
-            command=self.abrir_ventana_respaldos
-        )
-        self.btn_nav_respaldos.pack(fill="x", padx=6, pady=4)
-
-        # Área de Vistas Dinámicas
-        self.contenedor_vistas = ctk.CTkFrame(self.frame_cuerpo_general, fg_color="transparent")
-        self.contenedor_vistas.grid(row=0, column=1, sticky="nsew")
-        self.contenedor_vistas.rowconfigure(0, weight=1)
-        self.contenedor_vistas.columnconfigure(0, weight=1)
-
-        # 1. Vista de Inventario Principal
-        self.vista_inventario = ctk.CTkFrame(self.contenedor_vistas, fg_color="transparent")
+        # 1. Vista de Inventario Principal (Ocupa el 100% de la pantalla de forma fija)
+        self.vista_inventario = ctk.CTkFrame(self.frame_cuerpo_general, fg_color="transparent")
         self.vista_inventario.rowconfigure(3, weight=1)
         self.vista_inventario.columnconfigure(0, weight=1)
 
@@ -327,7 +297,7 @@ class InventarioBienesApp:
 
         # 2. Vista de Traslado de Equipos
         self.vista_traslado = VistaTraslado(
-            self.contenedor_vistas,
+            self.frame_cuerpo_general,
             obtener_bienes_callback=lambda: self.bienes,
             modo_oscuro=self.modo_oscuro,
             paleta=self.PALETA,
@@ -336,23 +306,119 @@ class InventarioBienesApp:
 
         self.vista_inventario.grid(row=0, column=0, sticky="nsew")
 
-    def toggle_sidebar(self):
-        if self.sidebar_expandido:
-            self.frame_sidebar.configure(width=56)
-            self.btn_toggle_sidebar.configure(text="☰", anchor="center")
-            self.btn_nav_inv.configure(text="📦", anchor="center")
-            self.btn_nav_doc.configure(text="📄", anchor="center")
-            self.btn_nav_bajas.configure(text="❌", anchor="center")
-            self.btn_nav_respaldos.configure(text="💾", anchor="center")
-            self.sidebar_expandido = False
+    # ================= MENÚ FLOTANTE PURO (SIN ERROR DE PLACE) =================
+    def crear_menu_flotante_drawer(self):
+        # En CustomTkinter, width y height se declaran AQUÍ en el constructor
+        self.drawer = ctk.CTkFrame(
+            self.frame_cuerpo_general,
+            width=260,
+            height=380,
+            corner_radius=10,
+            fg_color="#0b1324" if self.modo_oscuro else "#0f172a",
+            border_width=2,
+            border_color="#0284c7"
+        )
+        self.drawer.pack_propagate(False)
+
+        # Cabecera del menú flotante
+        f_head_drawer = ctk.CTkFrame(self.drawer, fg_color="transparent")
+        f_head_drawer.pack(fill="x", padx=12, pady=(12, 8))
+
+        ctk.CTkLabel(
+            f_head_drawer, text="🧭 NAVEGACIÓN",
+            font=ctk.CTkFont(family="Segoe UI", size=12, weight="bold"),
+            text_color="#38bdf8"
+        ).pack(side="left")
+
+        btn_cerrar_drawer = ctk.CTkButton(
+            f_head_drawer, text="✕", width=30, height=30,
+            font=ctk.CTkFont(size=13, weight="bold"),
+            fg_color="transparent", hover_color="#dc2626",
+            command=self.cerrar_menu_flotante
+        )
+        btn_cerrar_drawer.pack(side="right")
+
+        ctk.CTkFrame(self.drawer, height=1, fg_color="#1e293b").pack(fill="x", padx=12, pady=(0, 10))
+
+        # Opciones de navegación
+        self.btn_nav_inv = ctk.CTkButton(
+            self.drawer, text="📦  Inventario Activo", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="#0284c7", hover_color="#0369a1", anchor="w", height=40,
+            command=lambda: self.navegar_y_cerrar("inventario")
+        )
+        self.btn_nav_inv.pack(fill="x", padx=12, pady=5)
+
+        self.btn_nav_doc = ctk.CTkButton(
+            self.drawer, text="📄  Acta de Traslado", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="transparent", hover_color="#1e293b", anchor="w", height=40,
+            command=lambda: self.navegar_y_cerrar("traslado")
+        )
+        self.btn_nav_doc.pack(fill="x", padx=12, pady=5)
+
+        self.btn_nav_bajas = ctk.CTkButton(
+            self.drawer, text="❌  Activos de Baja", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="transparent", hover_color="#1e293b", anchor="w", height=40,
+            command=lambda: [self.cerrar_menu_flotante(), self.mostrar_ventana_desincorporados()]
+        )
+        self.btn_nav_bajas.pack(fill="x", padx=12, pady=5)
+
+        self.btn_nav_resp = ctk.CTkButton(
+            self.drawer, text="💾  Centro de Respaldos", font=ctk.CTkFont(size=12, weight="bold"),
+            fg_color="transparent", hover_color="#1e293b", anchor="w", height=40,
+            command=lambda: [self.cerrar_menu_flotante(), self.abrir_ventana_respaldos()]
+        )
+        self.btn_nav_resp.pack(fill="x", padx=12, pady=5)
+
+        # Pie institucional
+        ctk.CTkLabel(
+            self.drawer, text="SIGART V2.6 — UNELLEZ VIPI\nCoordinación CTSI",
+            font=ctk.CTkFont(size=9), text_color="#64748b", justify="center"
+        ).pack(side="bottom", pady=15)
+
+    def toggle_menu_flotante(self):
+        if self.menu_abierto:
+            self.cerrar_menu_flotante()
         else:
-            self.frame_sidebar.configure(width=200)
-            self.btn_toggle_sidebar.configure(text="☰  COLAPSAR", anchor="w")
-            self.btn_nav_inv.configure(text="📦  Inventario Activo", anchor="w")
-            self.btn_nav_doc.configure(text="📄  Acta de Traslado", anchor="w")
-            self.btn_nav_bajas.configure(text="❌  Activos de Baja", anchor="w")
-            self.btn_nav_respaldos.configure(text="💾  Centro Respaldos", anchor="w")
-            self.sidebar_expandido = True
+            self.abrir_menu_flotante()
+
+    def abrir_menu_flotante(self):
+        self.menu_abierto = True
+        # CORRECCIÓN: Solo se pasa x e y (width y height se toman del constructor)
+        self.drawer.place(x=10, y=10)
+        self.drawer.lift()
+
+    def cerrar_menu_flotante(self):
+        self.menu_abierto = False
+        self.drawer.place_forget()
+
+    def detectar_clic_fuera_del_menu(self, event):
+        """Si el menú está abierto y el usuario hace clic afuera de él, se cierra solo."""
+        if not self.menu_abierto:
+            return
+        try:
+            x, y = event.x_root, event.y_root
+            dx1 = self.drawer.winfo_rootx()
+            dy1 = self.drawer.winfo_rooty()
+            dx2 = dx1 + self.drawer.winfo_width()
+            dy2 = dy1 + self.drawer.winfo_height()
+
+            # Si el clic no fue dentro del menú ni en el botón que lo abre, cerrarlo
+            btn_x1 = self.btn_menu_trigger.winfo_rootx()
+            btn_y1 = self.btn_menu_trigger.winfo_rooty()
+            btn_x2 = btn_x1 + self.btn_menu_trigger.winfo_width()
+            btn_y2 = btn_y1 + self.btn_menu_trigger.winfo_height()
+
+            clic_en_drawer = (dx1 <= x <= dx2 and dy1 <= y <= dy2)
+            clic_en_boton = (btn_x1 <= x <= btn_x2 and btn_y1 <= y <= btn_y2)
+
+            if not clic_en_drawer and not clic_en_boton:
+                self.cerrar_menu_flotante()
+        except Exception:
+            pass
+
+    def navegar_y_cerrar(self, vista):
+        self.cerrar_menu_flotante()
+        self.mostrar_vista(vista)
 
     def mostrar_vista(self, nombre_vista):
         if nombre_vista == "inventario":
@@ -367,13 +433,14 @@ class InventarioBienesApp:
             self.btn_nav_doc.configure(fg_color="#0284c7")
             self.btn_nav_inv.configure(fg_color="transparent")
 
-    # ================= TARJETAS KPI =================
+    # ================= TARJETAS KPI (SIMÉTRICAS: EXACTO 20% CADA UNA) =================
     def crear_panel_metricas(self, parent):
         self.frame_kpis = ctk.CTkFrame(parent, fg_color="transparent")
         self.frame_kpis.grid(row=0, column=0, sticky="ew", padx=12, pady=(8, 4))
 
+        # 5 columnas idénticas
         for i in range(5):
-            self.frame_kpis.columnconfigure(i, weight=1, uniform="kpi")
+            self.frame_kpis.columnconfigure(i, weight=1, uniform="kpi_col")
 
         self.tarjetas_widgets = []
         metricas = [
@@ -399,7 +466,7 @@ class InventarioBienesApp:
 
     def crear_tarjeta(self, col, titulo, valor_inicial, subtitulo, nombre_archivo_png, clave):
         card = ctk.CTkFrame(self.frame_kpis, corner_radius=10, border_width=1, cursor="hand2")
-        card.grid(row=0, column=col, sticky="nsew", padx=3)
+        card.grid(row=0, column=col, sticky="nsew", padx=4)
 
         top_frame = ctk.CTkFrame(card, fg_color="transparent")
         top_frame.pack(fill="x", padx=8, pady=(4, 2))
@@ -407,11 +474,11 @@ class InventarioBienesApp:
         lbl_check = ctk.CTkLabel(top_frame, text="", font=ctk.CTkFont(family="Consolas", size=14, weight="bold"))
         lbl_check.pack(side="left", padx=(0, 2))
 
-        lbl_tit = ctk.CTkLabel(top_frame, text=titulo, font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"), anchor="w")
+        lbl_tit = ctk.CTkLabel(top_frame, text=titulo, font=ctk.CTkFont(family="Segoe UI", size=10, weight="bold"), anchor="w")
         lbl_tit.pack(side="left", fill="x", expand=True)
 
         linea = ctk.CTkFrame(card, height=2, corner_radius=0)
-        linea.pack(anchor="w", fill="x", padx=(8, 70), pady=(0, 2))
+        linea.pack(anchor="w", fill="x", padx=(8, 25), pady=(0, 2))
 
         val_frame = ctk.CTkFrame(card, fg_color="transparent")
         val_frame.pack(fill="x", padx=8, pady=(2, 2))
@@ -423,7 +490,7 @@ class InventarioBienesApp:
         lbl_icon = ctk.CTkLabel(val_frame, text="", anchor="e")
         lbl_icon.grid(row=0, column=1, sticky="e")
 
-        lbl_sub = ctk.CTkLabel(card, text=subtitulo, font=ctk.CTkFont(family="Segoe UI", size=10), anchor="w")
+        lbl_sub = ctk.CTkLabel(card, text=subtitulo, font=ctk.CTkFont(family="Segoe UI", size=9), anchor="w")
         lbl_sub.pack(fill="x", padx=8, pady=(0, 4))
 
         for elem in [card, top_frame, val_frame, lbl_check, lbl_tit, lbl_icon, lbl_val, lbl_sub, linea]:
@@ -479,7 +546,7 @@ class InventarioBienesApp:
         self.combo_nombre.set(TIPOS_ACTIVOS_VALIDOS[0])
         self.combo_nombre.grid(row=2, column=1, columnspan=5, padx=5, pady=3, sticky="ew")
 
-        # Fila 3: Mantenimiento, Fecha y Próximo (Con fix dinámico de color)
+        # Fila 3: Mantenimiento, Fecha y Próximo
         ctk.CTkLabel(self.frame_form, text="Mantenimiento:", font=ctk.CTkFont(size=11, weight="bold")).grid(row=3, column=0, padx=(12, 5), pady=3, sticky="e")
         self.combo_mant = ctk.CTkOptionMenu(self.frame_form, values=["No", "Sí (Preventivo)", "Sí (Correctivo)"], height=28)
         self.combo_mant.set("No")
@@ -493,7 +560,6 @@ class InventarioBienesApp:
 
         ctk.CTkLabel(self.frame_form, text="Próximo (+3M Hábil):", font=ctk.CTkFont(size=11, weight="bold")).grid(row=3, column=4, padx=(10, 5), pady=3, sticky="e")
         
-        # Color dinámico adaptativo para que nunca quede blanco en modo oscuro
         self.entry_proximo = ctk.CTkEntry(
             self.frame_form,
             font=ctk.CTkFont(family="Segoe UI", size=11, weight="bold"),
@@ -556,7 +622,6 @@ class InventarioBienesApp:
 
     # ================= MÁSCARA Y VALIDACIÓN DE FECHAS =================
     def formatear_y_validar_fecha_mascara(self, event=None):
-        """Mantiene de forma estricta el formato DD/MM/AAAA conforme el usuario teclea."""
         if event and event.keysym in ("BackSpace", "Delete", "Left", "Right", "Tab"):
             self.calcular_proxima_fecha_mantenimiento()
             return
@@ -579,7 +644,6 @@ class InventarioBienesApp:
         self.calcular_proxima_fecha_mantenimiento()
 
     def calcular_proxima_fecha_mantenimiento(self):
-        """Calcula la fecha hábil (+3 meses) y mantiene el color adaptativo correcto."""
         fecha_str = self.entry_fecha_mant.get().strip()
 
         if validar_fecha_ddmmaaaa(fecha_str):
@@ -631,7 +695,7 @@ class InventarioBienesApp:
             font=ctk.CTkFont(size=10), text_color="#94a3b8"
         ).pack(side="right")
 
-   # ================= TABLA DE DATOS =================
+    # ================= TABLA DE DATOS =================
     def crear_tabla(self, parent):
         self.frame_tabla = ctk.CTkFrame(parent, corner_radius=6, border_width=0)
         self.frame_tabla.grid(row=3, column=0, sticky="nsew", padx=12, pady=4)
@@ -641,36 +705,27 @@ class InventarioBienesApp:
         cols = ("id", "nombre", "asignado_a", "mantenimiento", "fecha_mant", "proximo_mant")
         self.tabla = ttk.Treeview(self.frame_tabla, columns=cols, show="tree headings")
 
-        # 1. Encabezados de columnas ordenados lógicamente
-        self.tabla.heading("#0", text="", anchor="center")
+        # Encabezados
+        self.tabla.heading("#0", text="⚠️", anchor="center")
         self.tabla.heading("id", text="ID Activo", anchor="center")
         self.tabla.heading("nombre", text="Descripción / Equipo Tecnológico", anchor="w")
         self.tabla.heading("asignado_a", text="Asignado a / Área", anchor="w")
         self.tabla.heading("mantenimiento", text="Régimen Mant.", anchor="center")
-        self.tabla.heading("fecha_mant", text="Fecha consolidado", anchor="center")
+        self.tabla.heading("fecha_mant", text="Fecha Mant./Ingreso", anchor="center")
         self.tabla.heading("proximo_mant", text="Próx. Fecha Hábil (+3M)", anchor="center")
 
-        # 2. Configuración de anchos milimétricos:
-        # Columna de icono de advertencia técnica
-        self.tabla.column("#0", width=20, minwidth=20, anchor="center", stretch=False)
-        # Columna de número de ID del activo
+        # Anchos proporcionales
+        self.tabla.column("#0", width=34, minwidth=34, anchor="center", stretch=False)
         self.tabla.column("id", width=70, minwidth=55, anchor="center", stretch=False)
-        # Columna elástica: toma todo el ancho sobrante de la pantalla
         self.tabla.column("nombre", width=260, minwidth=180, anchor="w", stretch=True)
-        # Área asignada con espacio suficiente para nombres largos de dependencias
         self.tabla.column("asignado_a", width=185, minwidth=150, anchor="w", stretch=False)
-        # Régimen de mantenimiento (Sí Preventivo / Sí Correctivo / No)
         self.tabla.column("mantenimiento", width=130, minwidth=115, anchor="center", stretch=False)
-        # Fecha de ingreso / último mantenimiento (DD/MM/AAAA)
         self.tabla.column("fecha_mant", width=115, minwidth=95, anchor="center", stretch=False)
-        # Próxima fecha hábil calculada (+3 meses hábiles)
         self.tabla.column("proximo_mant", width=155, minwidth=135, anchor="center", stretch=False)
 
-        # Eventos de interacción
         self.tabla.bind("<Double-1>", self.cargar_seleccion_para_editar)
         self.tabla.bind("<Button-3>", self.mostrar_menu_contextual)
 
-        # Barra de desplazamiento vertical
         sc = ctk.CTkScrollbar(self.frame_tabla, command=self.tabla.yview)
         self.tabla.configure(yscrollcommand=sc.set)
 
@@ -810,7 +865,6 @@ class InventarioBienesApp:
             messagebox.showinfo("Actualización", f"Activo ID #{id_int} modificado con persistencia exitosa.")
 
     def eliminar_bien_directo(self):
-        """Elimina un activo del inventario sin emitir acta de baja tras confirmación."""
         sel = self.tabla.selection()
         if not sel:
             messagebox.showwarning("Sin Selección", "Seleccione un activo para eliminar.")
@@ -974,10 +1028,7 @@ class InventarioBienesApp:
                 "fecha_baja": datetime.now().strftime("%d/%m/%Y %H:%M:%S")
             }
 
-            # 1. Intentar generar el documento PDF
             archivo_acta = generar_acta_baja(registro_baja)
-            
-            # 2. Solo si el archivo se genera con éxito, se procesa la baja local
             if archivo_acta:
                 self.bienes = [b for b in self.bienes if b["id"] != id_bien]
                 guardar_datos_locales(self.bienes)
@@ -1117,9 +1168,9 @@ class InventarioBienesApp:
                     ctk_img = ctk.CTkImage(light_image=col_i, dark_image=col_i, size=(18, 18))
                     self.btn_modo_oscuro.configure(image=ctk_img, text="", fg_color="#d97706" if self.modo_oscuro else "#1e293b")
 
-        # Sidebar styling
-        if hasattr(self, "frame_sidebar"):
-            self.frame_sidebar.configure(fg_color=pal["bg_sidebar"])
+        # Color del panel flotante
+        if hasattr(self, "drawer"):
+            self.drawer.configure(fg_color="#0b1324" if self.modo_oscuro else "#0f172a")
 
         self.actualizar_estilo_tarjetas_kpi()
 
